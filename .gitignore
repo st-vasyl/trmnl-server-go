@@ -1,0 +1,17 @@
+coverage.html
+coverage.out
+profile.out
+./cover
+
+.idea/
+.vscode/
+
+.env
+.DS_Store
+__debug_bin*
+
+bin/
+main
+server
+
+public/

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"trmnl-server-go/pkg/v1/plugins/bitcoin"
 )
 
 type Response struct {
@@ -18,13 +19,33 @@ type Response struct {
 }
 
 func renderDisplay() (res []byte) {
+	// apiKey := "72Q6JP7LLFX31QUY"
+	// filename := "public/stocks.png"
+	// stocks.RenderStocks(
+	// 	"GOOG",
+	// 	apiKey,
+	// 	800,
+	// 	480,
+	// 	50,
+	// 	50,
+	// 	filename,
+	// )
+
+	filename := "public/bitcoin.png"
+	bitcoin.RenderBitconin(
+		800,
+		480,
+		50,
+		50,
+		filename,
+	)
 	r := Response{
 		Status:         0,
-		ImageURL:       "http://172.16.30.187:8080/public/london.png",
+		ImageURL:       "http://172.16.30.187:8080/" + filename,
 		Filename:       "2024-09-20T00:00:00",
 		UpdateFirmware: false,
 		FirmwareUrl:    "",
-		RefreshRate:    30,
+		RefreshRate:    300,
 		ResetFirmware:  false,
 	}
 

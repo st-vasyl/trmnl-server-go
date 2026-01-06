@@ -11,7 +11,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"trmnl-server-go/pkg/v1/render"
 )
 
 // Layout constants for screen rendering
@@ -115,17 +114,17 @@ func RenderStocks(company, apiKey string, width, height, positionX, positionY in
 	white := color.RGBA{255, 255, 255, 255}
 	draw.Draw(img, img.Bounds(), &image.Uniform{white}, image.Point{}, draw.Src)
 
-	sc, _ := GetStocksData(company, apiKey)
+	// sc, _ := GetStocksData(company, apiKey)
 
-	price := fmt.Sprintf("Current price : %s ", sc.AnalystTargetPrice)
-	yearHigh := fmt.Sprintf("Year high : %s ", sc.D52WeekHigh)
-	yearLow := fmt.Sprintf("Year Low : %s ", sc.D52WeekLow)
+	// price := fmt.Sprintf("Current price : %s ", sc.AnalystTargetPrice)
+	// yearHigh := fmt.Sprintf("Year high : %s ", sc.D52WeekHigh)
+	// yearLow := fmt.Sprintf("Year Low : %s ", sc.D52WeekLow)
 
-	// Draw TRMNL logo text in center
-	render.DrawText(img, positionX, positionY, sc.Name, color.Black)
-	render.DrawText(img, positionX, positionY+15, price, color.Black)
-	render.DrawText(img, positionX, positionY+30, yearHigh, color.Black)
-	render.DrawText(img, positionX, positionY+45, yearLow, color.Black)
+	// // Draw TRMNL logo text in center
+	// render.DrawText(img, positionX, positionY, sc.Name, color.Black)
+	// render.DrawText(img, positionX, positionY+15, price, color.Black)
+	// render.DrawText(img, positionX, positionY+30, yearHigh, color.Black)
+	// render.DrawText(img, positionX, positionY+45, yearLow, color.Black)
 
 	f, err := os.Create(filename)
 	if err != nil {

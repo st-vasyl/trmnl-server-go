@@ -59,13 +59,13 @@ func RenderBitconin(width, height, positionX, positionY int, filename string) er
 	white := color.RGBA{255, 255, 255, 255}
 	draw.Draw(img, img.Bounds(), &image.Uniform{white}, image.Point{}, draw.Src)
 
-	b, _ := GetBitcoinData()
+	// b, _ := GetBitcoinData()
 
-	price := fmt.Sprintf("Current price : $%d ", b.MarketData.CurrentPrice.USD)
+	// price := fmt.Sprintf("Current price : $%d ", b.MarketData.CurrentPrice.USD)
 
 	// Draw TRMNL logo text in center
-	render.DrawText(img, positionX, positionY, b.Name, color.Black)
-	render.DrawText(img, positionX, positionY+15, price, color.Black)
+	render.RenderScreen()
+	// render.DrawText(img, positionX, positionY+15, price, color.Black)
 
 	f, err := os.Create(filename)
 	if err != nil {

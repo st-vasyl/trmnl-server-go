@@ -5,12 +5,8 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/draw"
-	"image/png"
 	"io"
-	"log"
 	"net/http"
-	"os"
 	"trmnl-server-go/pkg/v1/render"
 )
 
@@ -109,36 +105,27 @@ func GetStocksData(company string, apiKey string) (StockCompany, error) {
 }
 
 // GenerateScreen creates a TRMNL screen
-func RenderStocks(company, apiKey string, width, height, positionX, positionY int, filename string) error {
-	// Create a white background
-	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	white := color.RGBA{255, 255, 255, 255}
-	draw.Draw(img, img.Bounds(), &image.Uniform{white}, image.Point{}, draw.Src)
-
+func RenderStocks(company, apiKey string, width, height int, filename string) error {
+	img := render.NewImage(width, height)
 	sc, _ := GetStocksData(company, apiKey)
 
-	price := fmt.Sprintf("Current price : %s ", sc.AnalystTargetPrice)
-	yearHigh := fmt.Sprintf("Year high : %s ", sc.D52WeekHigh)
-	yearLow := fmt.Sprintf("Year Low : %s ", sc.D52WeekLow)
+	// yearHigh := fmt.Sprintf("Year high : %s ", sc.D52WeekHigh)
+	// yearLow := fmt.Sprintf("Year Low : %s ", sc.D52WeekLow)
 
-	// Draw TRMNL logo text in center
-	render.DrawText(img, positionX, positionY, sc.Name, color.Black)
-	render.DrawText(img, positionX, positionY+15, price, color.Black)
-	render.DrawText(img, positionX, positionY+30, yearHigh, color.Black)
-	render.DrawText(img, positionX, positionY+45, yearLow, color.Black)
-
-	f, err := os.Create(filename)
-	if err != nil {
-		log.Fatal(err)
+	if err := render.AddText(img, fmt.Sprintf("%s", sc.Name), image.Point{50, 50}, color.Black, 30); err != nil {
+		return err
 	}
 
-	if err := png.Encode(f, img); err != nil {
-		f.Close()
-		log.Fatal(err)
+	if err := render.AddText(img, fmt.Sprintf("$%s", sc.AnalystTargetPrice), image.Point{50, 100}, color.Black, 50); err != nil {
+		return err
 	}
 
-	if err := f.Close(); err != nil {
-		log.Fatal(err)
+	// if err := render.AddChart(img, width, height, 400, 240, width, height); err != nil {
+	// 	return err
+	// }
+
+	if err := render.WriteFile(filename, img); err != nil {
+		return err
 	}
 
 	return nil

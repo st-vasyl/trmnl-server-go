@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"trmnl-server-go/pkg/v1/plugins/bitcoin"
+	"trmnl-server-go/pkg/v1/plugins/crypto"
 )
 
 type Response struct {
@@ -31,14 +31,13 @@ func renderDisplay() (res []byte) {
 	// 	filename,
 	// )
 
-	filename := "public/bitcoin.png"
-	bitcoin.RenderBitconin(
+	filename := "public/crypto.png"
+	crypto.RenderScreenCrypto(
 		800,
 		480,
-		50,
-		50,
 		filename,
 	)
+
 	r := Response{
 		Status:         0,
 		ImageURL:       "http://172.16.30.187:8080/" + filename,
@@ -93,4 +92,8 @@ func ServeFiles(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	Run("main", "00000", "0.0.1", "8080")
+
+	// for _, v := range r.Prices {
+	// 	log.Printf("Price: %d \n", int(v[1]))
+	// }
 }

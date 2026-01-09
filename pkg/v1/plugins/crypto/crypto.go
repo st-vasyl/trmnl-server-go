@@ -10,6 +10,10 @@ import (
 	"trmnl-server-go/pkg/v1/render"
 )
 
+type HistoryRecords struct {
+	Prices [][]float64 `json:"prices"`
+}
+
 type Crypto struct {
 	ID         string     `json:"id"`
 	Name       string     `json:"name"`
@@ -48,28 +52,36 @@ func GetCryptoData(symbol string) (Crypto, error) {
 	return c, nil
 }
 
-func GetCryptoHistoryData(symbol string) (render.Records, error) {
-	var rec render.Records
+func GetCryptoHistoryData(symbol string) (render.ChartRecords, error) {
+	var hr HistoryRecords
+	var records render.ChartRecords
 
 	url := fmt.Sprintf("https://api.coingecko.com/api/v3/coins/%s/market_chart?vs_currency=usd&days=1", symbol)
 	r, err := http.Get(url)
 	r.Header.Set("Accept", "application/json")
 	r.Header.Set("Accept-Language", "en-US")
 	if err != nil {
-		return rec, err
+		return records, err
 	}
 	body, err := io.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
-		return rec, err
+		return records, err
 	}
 
-	err = json.Unmarshal([]byte(body), &rec)
+	err = json.Unmarshal([]byte(body), &hr)
 	if err != nil {
 		panic(err)
 	}
 
-	return rec, nil
+	for _, v := range hr.Prices {
+		var r render.ChartRecord
+		r.T = float64(v[0])
+		r.V = float64(v[1])
+		records.ChartRecord = append(records.ChartRecord, r)
+	}
+
+	return records, nil
 }
 
 func RenderScreenCrypto(width, height int, filename string) error {

@@ -1,21 +1,30 @@
 package render
 
 import (
+	"bytes"
 	"image"
 	"image/color"
 	"image/draw"
 	"image/png"
 	"log"
 	"os"
-	"slices"
+	"time"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
 )
 
-type Records struct {
-	Prices [][]float64 `json:"prices"`
+type ChartRecords struct {
+	ChartRecord []ChartRecord
+}
+
+type ChartRecord struct {
+	T float64
+	V float64
 }
 
 type Point struct {
@@ -85,9 +94,9 @@ func WriteFile(filename string, img *image.RGBA) error {
 	return nil
 }
 
-func AddChart(img *image.RGBA, r Records, width, height, startPosX, startPosY, EndPosX, EndPosY int) error {
-	drawLine(img, startPosX, EndPosY, EndPosX, EndPosY)
-	drawLine(img, startPosX, startPosY, startPosX, EndPosY)
+func AddChart(img *image.RGBA, r ChartRecords, width, height, startPosX, startPosY, EndPosX, EndPosY int) error {
+	// drawLine(img, startPosX, EndPosY, EndPosX, EndPosY)
+	// drawLine(img, startPosX, startPosY, startPosX, EndPosY)
 	drawChart(img, r, startPosX, startPosY, EndPosX, EndPosY)
 	return nil
 }
@@ -100,41 +109,55 @@ func drawLine(img *image.RGBA, startPosX, startPosY, EndPosX, EndPosY int) {
 	}
 }
 
-func drawChart(img *image.RGBA, r Records, startPosX, startPosY, EndPosX, EndPosY int) {
-	var prices []int
-	for _, v := range r.Prices {
-		// log.Printf("Index: %d, value: %d", i, int(v[1]))
-		prices = append(prices, int(v[1]))
+func genPoints(r ChartRecords) plotter.XYs {
+	pts := make(plotter.XYs, len(r.ChartRecord))
+	i := 0
+	for _, v := range r.ChartRecord {
+		t := time.Unix(int64(v.T), 0).Unix()
+		pts[i].X = float64(t)
+		pts[i].Y = float64(v.V)
+		i++
 	}
-
-	lengthY := EndPosY - startPosY
-	min_price := slices.Min(prices)
-	max_price := slices.Max(prices)
-
-	log.Printf("Coordinates Y: %d, %d \n", startPosY, EndPosY)
-	log.Printf("Amount of pixels: %d, and amount of data %d \n", lengthY, len(prices))
-	log.Printf("Min price: %d, and Max price: %d \n", min_price, max_price)
-	stepX := int((EndPosX - startPosX) / len(prices))
-	pointX := startPosX
-	log.Printf("Step X: %d \n", stepX)
-	for i, _ := range prices {
-		price_percentage := (max_price - prices[i]) * 100 / (max_price - min_price)
-		pointY := EndPosY - ((EndPosY - startPosY) * price_percentage / 100)
-		// img.Set(pointX, pointY, color.Black)
-		SetBoldPixel(img, pointX, pointY)
-		pointX = pointX + 2
-		// log.Printf("Point: {%d,%d} value: %d", pointX, pointY, prices[i])
-	}
+	return pts
 }
 
-func SetBoldPixel(img *image.RGBA, x, y int) {
-	img.Set(x-1, y-1, color.Black)
-	img.Set(x-1, y+1, color.Black)
-	img.Set(x, y-1, color.Black)
-	img.Set(x, y, color.Black)
-	img.Set(x, y+1, color.Black)
-	img.Set(x-1, y, color.Black)
-	img.Set(x+1, y, color.Black)
-	img.Set(x+1, y+1, color.Black)
-	img.Set(x+1, y-1, color.Black)
+func drawChart(img *image.RGBA, r ChartRecords, startPosX, startPosY, EndPosX, EndPosY int) {
+	p := plot.New()
+	xticks := plot.TimeTicks{}
+	p.X.Tick.Marker = xticks
+	p.Add(plotter.NewGrid())
+	data := genPoints(r)
+
+	line, _, err := plotter.NewLinePoints(data)
+	if err != nil {
+		log.Panic(err)
+	}
+	line.Color = color.RGBA{A: 255}
+
+	p.Add(line)
+
+	buf := bytes.NewBuffer(nil)
+	writerTo, err := p.WriterTo(vg.Points(float64(500)), vg.Points(float64(200)), "png")
+	writerTo.WriteTo(buf)
+
+	chart, _, _ := image.Decode(buf)
+	draw.Draw(img, img.Bounds(), chart, image.Point{-30, -200}, draw.Over)
+
 }
+
+// func addImage(img *image.RGBA, path string, point image.Point) error {
+// 	f, err := os.Open(path)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	chart, _, err := image.Decode(f)
+
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	draw.Draw(img, img.Bounds(), chart, point, draw.Over)
+
+// 	return nil
+// }

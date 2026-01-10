@@ -94,13 +94,6 @@ func WriteFile(filename string, img *image.RGBA) error {
 	return nil
 }
 
-func AddChart(img *image.RGBA, r ChartRecords, width, height, startPosX, startPosY, EndPosX, EndPosY int) error {
-	// drawLine(img, startPosX, EndPosY, EndPosX, EndPosY)
-	// drawLine(img, startPosX, startPosY, startPosX, EndPosY)
-	drawChart(img, r, startPosX, startPosY, EndPosX, EndPosY)
-	return nil
-}
-
 func drawLine(img *image.RGBA, startPosX, startPosY, EndPosX, EndPosY int) {
 	for x := startPosX; x <= EndPosX; x++ {
 		for y := startPosY; y <= EndPosY; y++ {
@@ -113,17 +106,18 @@ func genPoints(r ChartRecords) plotter.XYs {
 	pts := make(plotter.XYs, len(r.ChartRecord))
 	i := 0
 	for _, v := range r.ChartRecord {
-		t := time.Unix(int64(v.T), 0).Unix()
-		pts[i].X = float64(t)
-		pts[i].Y = float64(v.V)
+
+		t := time.UnixMilli(int64(v.T))
+		pts[i].X = float64(t.Unix())
+		pts[i].Y = v.V
 		i++
 	}
 	return pts
 }
 
-func drawChart(img *image.RGBA, r ChartRecords, startPosX, startPosY, EndPosX, EndPosY int) {
+func AddChart(img *image.RGBA, r ChartRecords, chartWidth, chartHeight int, point image.Point) error {
 	p := plot.New()
-	xticks := plot.TimeTicks{}
+	xticks := plot.TimeTicks{Format: "2006-01-02\n15:04"}
 	p.X.Tick.Marker = xticks
 	p.Add(plotter.NewGrid())
 	data := genPoints(r)
@@ -137,12 +131,12 @@ func drawChart(img *image.RGBA, r ChartRecords, startPosX, startPosY, EndPosX, E
 	p.Add(line)
 
 	buf := bytes.NewBuffer(nil)
-	writerTo, err := p.WriterTo(vg.Points(float64(500)), vg.Points(float64(200)), "png")
+	writerTo, err := p.WriterTo(vg.Points(float64(chartWidth)), vg.Points(float64(chartHeight)), "png")
 	writerTo.WriteTo(buf)
 
 	chart, _, _ := image.Decode(buf)
-	draw.Draw(img, img.Bounds(), chart, image.Point{-30, -200}, draw.Over)
-
+	draw.Draw(img, img.Bounds(), chart, point, draw.Over)
+	return nil
 }
 
 // func addImage(img *image.RGBA, path string, point image.Point) error {

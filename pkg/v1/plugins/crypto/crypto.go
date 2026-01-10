@@ -21,10 +21,12 @@ type Crypto struct {
 }
 
 type MarketData struct {
-	CurrentPrice CurrentPrice `json:"current_price"`
+	CurrentPrice Price `json:"current_price"`
+	High24h      Price `json:"high_24h"`
+	Low24h       Price `json:"low_24h"`
 }
 
-type CurrentPrice struct {
+type Price struct {
 	USD int `json:"usd"`
 }
 
@@ -76,24 +78,31 @@ func GetCryptoHistoryData(symbol string) (render.ChartRecords, error) {
 
 	for _, v := range hr.Prices {
 		var r render.ChartRecord
-		r.T = float64(v[0])
-		r.V = float64(v[1])
+		r.T = v[0]
+		r.V = v[1]
 		records.ChartRecord = append(records.ChartRecord, r)
 	}
-
 	return records, nil
 }
 
-func RenderScreenCrypto(width, height int, filename string) error {
-	b, _ := GetCryptoData("bitcoin")
-	r, _ := GetCryptoHistoryData("bitcoin")
+func RenderScreenCrypto(width, height int, coin, filename string) error {
+	b, _ := GetCryptoData(coin)
+	r, _ := GetCryptoHistoryData(coin)
 	img := render.NewImage(width, height)
 
 	if err := render.AddText(img, fmt.Sprintf("$%d", b.MarketData.CurrentPrice.USD), image.Point{50, 50}, color.Black, 50); err != nil {
 		return err
 	}
 
-	if err := render.AddChart(img, r, width, height, 50, 200, 500, 400); err != nil {
+	if err := render.AddText(img, fmt.Sprintf("High 24h: $%d", b.MarketData.High24h.USD), image.Point{50, 100}, color.Black, 30); err != nil {
+		return err
+	}
+
+	if err := render.AddText(img, fmt.Sprintf("Low 24h:  $%d", b.MarketData.Low24h.USD), image.Point{50, 150}, color.Black, 30); err != nil {
+		return err
+	}
+
+	if err := render.AddChart(img, r, 550, 200, image.Point{-30, -200}); err != nil {
 		return err
 	}
 

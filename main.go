@@ -35,6 +35,7 @@ func renderDisplay() (res []byte) {
 	crypto.RenderScreenCrypto(
 		800,
 		480,
+		"bitcoin",
 		filename,
 	)
 

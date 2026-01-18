@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -14,12 +15,15 @@ import (
 )
 
 const (
-	port   = "8080"
-	dbname = "./trmnl.db"
+	port    = "8080"
+	dbname  = "./trmnl.db"
+	timeout = 300
 )
 
 var plugins = []string{"crypto", "weather"}
-var apiKey = "xxxxxxxxxx"
+var debug = false
+
+// var apiKey = "xxxxxxxxxx"
 
 type DisplayResponse struct {
 	Status         int    `json:"status,omitempty"`
@@ -45,10 +49,10 @@ func renderDisplay(port, apiKey string) (res []byte) {
 	r := DisplayResponse{
 		Status:         0,
 		ImageURL:       fmt.Sprintf("http://172.16.30.187:%s/%s", port, filename),
-		Filename:       "2024-09-20T00:00:00",
+		Filename:       time.Now().Format("2006-01-02 15:04:05"),
 		UpdateFirmware: false,
 		FirmwareUrl:    "",
-		RefreshRate:    300,
+		RefreshRate:    timeout,
 		ResetFirmware:  false,
 	}
 	res, err = json.Marshal(r)
@@ -68,6 +72,8 @@ func HandleHTTP(branch, commithash, version, port string) {
 	})
 
 	http.HandleFunc("/api/setup", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Getting device registration: %s \n", r.Header.Get("Access-Token"))
+		apiKey := r.Header.Get("Access-Token")
 		s := SetupResponse{
 			Status:     200,
 			ApiKey:     apiKey,
@@ -79,6 +85,10 @@ func HandleHTTP(branch, commithash, version, port string) {
 		if err != nil {
 			log.Fatalf("Error occurred during marshalling: %s", err.Error())
 		}
+
+		if debug {
+			log.Printf("DEBUG: setup responce %s \n", msg)
+		}
 		w.WriteHeader(200)
 		w.Write([]byte(msg))
 		db.RegisterDevice(dbname, apiKey, plugins[0])
@@ -87,11 +97,42 @@ func HandleHTTP(branch, commithash, version, port string) {
 	http.HandleFunc("/public/", ServeFiles)
 
 	http.HandleFunc("/api/display", func(w http.ResponseWriter, r *http.Request) {
+		apiKey := r.Header.Get("Access-Token")
 		log.Printf("Rendering display for device: %s \n", r.Header.Get("Access-Token"))
+
+		if debug {
+			log.Printf("DEBUG: recieved headers from device %s \n", r.Header.Get("Access-Token"))
+			for k, v := range r.Header {
+				log.Printf("Header field %s, Value %s \n", k, v)
+			}
+		}
+
 		msg := renderDisplay(port, apiKey)
+
+		if debug {
+			log.Printf("DEBUG: display responce %s \n", msg)
+		}
+
 		w.WriteHeader(200)
 		w.Write([]byte(msg))
 	})
+
+	http.HandleFunc("POST /api/log", func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		r.Body.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log.Printf("Recieving logs from device: %s \n", r.Header.Get("Access-Token"))
+
+		if debug {
+			log.Printf("DEBUG: Logse %s \n", string(body))
+		}
+		w.WriteHeader(200)
+		w.Write([]byte("OK"))
+	})
+
 	log.Printf("Branch: %s, CommitHash: %s, Version: %s \n", branch, commithash, version)
 	log.Printf("HTTP server started on port %s \n", port)
 
@@ -102,7 +143,7 @@ func HandleHTTP(branch, commithash, version, port string) {
 }
 
 func ServeFiles(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Requested file %s from %s", r.URL.Path, r.Form)
+	log.Printf("Requested file %s", r.RequestURI)
 	p := "." + r.URL.Path
 	http.ServeFile(w, r, p)
 }
@@ -145,7 +186,7 @@ func UpdateData() {
 			"bitcoin",
 			"public/crypto.png",
 		)
-		log.Printf("Update: Crypto data \n")
+		log.Printf("Update data for plugin: crypto \n")
 
 		weather.RenderScreenWeather(
 			800,
@@ -153,8 +194,8 @@ func UpdateData() {
 			"Wroclaw",
 			"public/weather.png",
 		)
-		log.Printf("Update: weather data \n")
-		time.Sleep(900 * time.Second)
+		log.Printf("Update data for plugin: weather \n")
+		time.Sleep(1800 * time.Second)
 	}
 }
 

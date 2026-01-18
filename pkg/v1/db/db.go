@@ -60,7 +60,7 @@ func UpdateDevice(dbname, key, screen string) error {
 		log.Fatal(err)
 		return err
 	}
-	log.Printf("Device %s updated successfully \n", key)
+	log.Printf("DB: record for device %s updated successfully \n", key)
 	return nil
 }
 
@@ -84,7 +84,7 @@ func GetDevice(dbname, key string) (string, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("Found screen %s by device api-key %s \n", screen, key)
+	log.Printf("DB: found screen %s by device key %s \n", screen, key)
 
 	return screen, nil
 }

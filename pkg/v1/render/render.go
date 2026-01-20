@@ -2,13 +2,18 @@ package render
 
 import (
 	"bytes"
+	"encoding/base64"
 	"image"
 	"image/color"
 	"image/draw"
+	"image/jpeg"
 	"image/png"
 	"log"
+	"net/http"
 	"os"
+	"strings"
 	"time"
+	"trmnl-server-go/pkg/v1/icons"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
@@ -27,10 +32,6 @@ type ChartRecord struct {
 	V float64
 }
 
-type Point struct {
-	X, Y float64
-}
-
 // Generate an empty image with given width and height
 func NewImage(width, height int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
@@ -41,6 +42,7 @@ func NewImage(width, height int) *image.RGBA {
 
 // Add a text to the image with given string, start point and a font size
 func AddText(img *image.RGBA, text string, point image.Point, col color.Color, fontSize float64) error {
+	// TODO: Remove custom font
 	fontBytes, err := os.ReadFile("font.ttf")
 	if err != nil {
 		return err
@@ -76,13 +78,18 @@ func AddText(img *image.RGBA, text string, point image.Point, col color.Color, f
 }
 
 // Write image changes to the file
-func WriteFile(filename string, img *image.RGBA) error {
+func WriteFile(filename string, img *image.RGBA, voltage float32) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 
-	if err := png.Encode(f, img); err != nil {
+	if err := AddImageFromBase64(img, voltage, image.Point{-750, -20}); err != nil {
+		return err
+	}
+
+	bw := ConvertToGray(img)
+	if err := png.Encode(f, bw); err != nil {
 		f.Close()
 		return err
 	}
@@ -172,19 +179,53 @@ func AddWeatherChart(img *image.RGBA, daily_min, daily_max ChartRecords, chartWi
 	return nil
 }
 
-// func addImage(img *image.RGBA, path string, point image.Point) error {
-// 	f, err := os.Open(path)
-// 	if err != nil {
-// 		return err
-// 	}
+func ConvertToGray(img *image.RGBA) *image.Gray {
+	target := image.NewGray(img.Bounds())
+	draw.Draw(target, target.Bounds(), img, img.Bounds().Min, draw.Src)
+	return target
+}
 
-// 	chart, _, err := image.Decode(f)
+func AddImageFromBase64(img *image.RGBA, voltage float32, point image.Point) error {
+	batteryPercentage := ((voltage - 3) / 0.012)
+	var batteryImage string
 
-// 	if err != nil {
-// 		return err
-// 	}
+	switch {
+	case batteryPercentage > 90.0:
+		batteryImage = icons.Battery100
+	case batteryPercentage > 70.0 && batteryPercentage <= 90.0:
+		batteryImage = icons.Battery80
+	case batteryPercentage > 70.0 && batteryPercentage <= 90.0:
+		batteryImage = icons.Battery80
+	case batteryPercentage > 50.0 && batteryPercentage <= 70.0:
+		batteryImage = icons.Battery60
+	case batteryPercentage > 30.0 && batteryPercentage <= 50.0:
+		batteryImage = icons.Battery40
+	case batteryPercentage > 10.0 && batteryPercentage <= 30.0:
+		batteryImage = icons.Battery20
+	case batteryPercentage <= 10.0:
+		batteryImage = icons.Battery0
+	}
 
-// 	draw.Draw(img, img.Bounds(), chart, point, draw.Over)
+	data := base64.NewDecoder(base64.StdEncoding, strings.NewReader(batteryImage))
+	srcImg, err := png.Decode(data)
+	if err != nil {
+		log.Fatalln("Unable to decode png from base64 image")
+		return err
+	}
+	draw.Draw(img, img.Bounds(), srcImg, point, draw.Over)
+	return nil
+}
 
-// 	return nil
-// }
+func GetImageByUrl(url string) (image.Image, error) {
+	r, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+
+	img, err := jpeg.Decode(r.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return img, nil
+}

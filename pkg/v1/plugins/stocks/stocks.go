@@ -105,7 +105,7 @@ func GetStocksData(company string, apiKey string) (StockCompany, error) {
 }
 
 // GenerateScreen creates a TRMNL screen
-func RenderStocks(company, apiKey string, width, height int, filename string) error {
+func RenderStocks(company, apiKey string, width, height int, filename string, voltage float32) error {
 	img := render.NewImage(width, height)
 	sc, _ := GetStocksData(company, apiKey)
 
@@ -124,7 +124,7 @@ func RenderStocks(company, apiKey string, width, height int, filename string) er
 	// 	return err
 	// }
 
-	if err := render.WriteFile(filename, img); err != nil {
+	if err := render.WriteFile(filename, img, voltage); err != nil {
 		return err
 	}
 

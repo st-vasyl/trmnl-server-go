@@ -106,7 +106,7 @@ func getWeather(l Location) (Weather, error) {
 	return w, nil
 }
 
-func RenderScreenWeather(width, height int, city, filename string) error {
+func RenderScreenWeather(width, height int, city, filename string, voltage float32) error {
 	l, _ := getLocation(city)
 	w, _ := getWeather(l)
 	img := render.NewImage(width, height)
@@ -153,7 +153,7 @@ func RenderScreenWeather(width, height int, city, filename string) error {
 		return err
 	}
 
-	if err := render.WriteFile(filename, img); err != nil {
+	if err := render.WriteFile(filename, img, voltage); err != nil {
 		return err
 	}
 

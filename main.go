@@ -15,15 +15,15 @@ import (
 )
 
 const (
-	port    = "8080"
-	dbname  = "./trmnl.db"
-	timeout = 300
+	hostname   = "172.16.30.187"
+	port       = "8080"
+	dbname     = "./trmnl.db"
+	timeout    = 300
+	updateTime = 3600
 )
 
 var plugins = []string{"crypto", "weather"}
-var debug = false
-
-// var apiKey = "xxxxxxxxxx"
+var log_level = "info"
 
 type DisplayResponse struct {
 	Status         int    `json:"status,omitempty"`
@@ -43,12 +43,16 @@ type SetupResponse struct {
 	Message    string `json:"message"`
 }
 
-func renderDisplay(port, apiKey string) (res []byte) {
-	screen, err := db.GetDevice(dbname, apiKey)
-	filename := fmt.Sprintf("public/%s.png", screen)
+func renderDisplay(port, deviceId, apiKey, voltage string) (res []byte) {
+	screen, err := db.GetDeviceScreen(dbname, deviceId)
+	if err != nil {
+		log.Printf("ERROR: no device with ID %s in the DB. Adding ..", deviceId)
+		db.RegisterDevice(dbname, deviceId, apiKey, plugins[0])
+	}
+	filename := fmt.Sprintf("public/%s_%s.png", apiKey, screen)
 	r := DisplayResponse{
 		Status:         0,
-		ImageURL:       fmt.Sprintf("http://172.16.30.187:%s/%s", port, filename),
+		ImageURL:       fmt.Sprintf("http://%s:%s/%s", hostname, port, filename),
 		Filename:       time.Now().Format("2006-01-02 15:04:05"),
 		UpdateFirmware: false,
 		FirmwareUrl:    "",
@@ -60,7 +64,7 @@ func renderDisplay(port, apiKey string) (res []byte) {
 		log.Fatalf("Error occurred during marshalling: %s", err.Error())
 	}
 	nextScreen := getNextScreen(screen)
-	err = db.UpdateDevice(dbname, apiKey, nextScreen)
+	err = db.UpdateDevice(dbname, deviceId, voltage, nextScreen)
 	return res
 }
 
@@ -71,9 +75,14 @@ func HandleHTTP(branch, commithash, version, port string) {
 		w.Write([]byte(msg))
 	})
 
+	http.HandleFunc("/public/", ServeFiles)
+
 	http.HandleFunc("/api/setup", func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Getting device registration: %s \n", r.Header.Get("Access-Token"))
 		apiKey := r.Header.Get("Access-Token")
+		deviceId := r.Header.Get("Id")
+		db.RegisterDevice(dbname, deviceId, apiKey, plugins[0])
+
 		s := SetupResponse{
 			Status:     200,
 			ApiKey:     apiKey,
@@ -86,30 +95,29 @@ func HandleHTTP(branch, commithash, version, port string) {
 			log.Fatalf("Error occurred during marshalling: %s", err.Error())
 		}
 
-		if debug {
+		if log_level == "debug" {
 			log.Printf("DEBUG: setup responce %s \n", msg)
 		}
 		w.WriteHeader(200)
 		w.Write([]byte(msg))
-		db.RegisterDevice(dbname, apiKey, plugins[0])
 	})
-
-	http.HandleFunc("/public/", ServeFiles)
 
 	http.HandleFunc("/api/display", func(w http.ResponseWriter, r *http.Request) {
 		apiKey := r.Header.Get("Access-Token")
+		deviceId := r.Header.Get("Id")
+		voltage := r.Header.Get("Battery-Voltage")
 		log.Printf("Rendering display for device: %s \n", r.Header.Get("Access-Token"))
 
-		if debug {
+		if log_level == "debug" {
 			log.Printf("DEBUG: recieved headers from device %s \n", r.Header.Get("Access-Token"))
 			for k, v := range r.Header {
 				log.Printf("Header field %s, Value %s \n", k, v)
 			}
 		}
 
-		msg := renderDisplay(port, apiKey)
+		msg := renderDisplay(port, deviceId, apiKey, voltage)
 
-		if debug {
+		if log_level == "debug" {
 			log.Printf("DEBUG: display responce %s \n", msg)
 		}
 
@@ -126,7 +134,7 @@ func HandleHTTP(branch, commithash, version, port string) {
 
 		log.Printf("Recieving logs from device: %s \n", r.Header.Get("Access-Token"))
 
-		if debug {
+		if log_level == "debug" || log_level == "info" {
 			log.Printf("DEBUG: Logse %s \n", string(body))
 		}
 		w.WriteHeader(200)
@@ -170,32 +178,48 @@ func main() {
 }
 
 func UpdateData() {
+	keys, _ := db.GetDeviceList(dbname)
 	for {
-		// stocks.RenderStocks(
-		// 	"AAPL",
-		// 	"72Q6JP7LLFX31QUY",
-		// 	800,
-		// 	480,
-		// 	"public/stocks.png",
-		// )
-		// log.Printf("Update: Stock data \n")
+		for _, key := range keys {
+			prefix := fmt.Sprintf("public/%s", key)
+			voltage, _ := db.GetDeviceVoltage(dbname, key)
+			// stocks.RenderStocks(
+			// 	"AAPL",
+			// 	"72Q6JP7LLFX31QUY",
+			// 	800,
+			// 	480,
+			// 	"public/stocks.png",
+			// )
+			// log.Printf("Update: Stock data \n")
 
-		crypto.RenderScreenCrypto(
-			800,
-			480,
-			"bitcoin",
-			"public/crypto.png",
-		)
-		log.Printf("Update data for plugin: crypto \n")
+			crypto.RenderScreenCrypto(
+				800,
+				480,
+				"bitcoin",
+				fmt.Sprintf("%s_crypto.png", prefix),
+				voltage,
+			)
+			log.Printf("Update data for plugin: crypto \n")
 
-		weather.RenderScreenWeather(
-			800,
-			480,
-			"Wroclaw",
-			"public/weather.png",
-		)
-		log.Printf("Update data for plugin: weather \n")
-		time.Sleep(1800 * time.Second)
+			weather.RenderScreenWeather(
+				800,
+				480,
+				"Wroclaw",
+				fmt.Sprintf("%s_weather.png", prefix),
+				voltage,
+			)
+			log.Printf("Update data for plugin: weather \n")
+
+			// random.RenderRandomImage(
+			// 	800,
+			// 	480,
+			// 	"JG308I6uXMpRErxkMzzAy8tRuRSM50yjwGPhtjWvO1g",
+			// 	"public/random_image.png",
+			// 	log_level,
+			// )
+			// log.Printf("Update data for plugin: random image \n")
+		}
+		time.Sleep(updateTime * time.Second)
 	}
 }
 

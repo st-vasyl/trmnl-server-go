@@ -4,11 +4,12 @@ import (
 	"database/sql"
 	"log"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/thanhpk/randstr"
+	_ "modernc.org/sqlite"
 )
 
 func InitDB(dbname string) error {
-	db, err := sql.Open("sqlite3", dbname)
+	db, err := sql.Open("sqlite", dbname)
 	if err != nil {
 		log.Fatal(err)
 		return err
@@ -17,8 +18,10 @@ func InitDB(dbname string) error {
 	sqlStmt := `
     CREATE TABLE IF NOT EXISTS devices (
         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-				key TEXT,
-				screen TEXT
+				device_id TEXT,
+				api_key TEXT,
+				screen TEXT,
+				voltage NUM
     );
     `
 	_, err = db.Exec(sqlStmt)
@@ -30,61 +33,122 @@ func InitDB(dbname string) error {
 	return nil
 }
 
-func RegisterDevice(dbname, key, screen string) error {
-	db, err := sql.Open("sqlite3", dbname)
+func RegisterDevice(dbname, deviceId, apiKey, screen string) error {
+	if apiKey == "" {
+		apiKey = randstr.String(16)
+	}
+	db, err := sql.Open("sqlite", dbname)
 	if err != nil {
 		log.Fatal(err)
 		return err
 	}
 	defer db.Close()
 
-	_, err = db.Exec("INSERT INTO devices(key, screen) VALUES(?,?)", key, screen)
+	_, err = db.Exec("INSERT INTO devices(device_id, api_key, screen, voltage) VALUES(?,?,?,0)", deviceId, apiKey, screen)
 	if err != nil {
 		log.Fatal(err)
 		return err
 	}
-	log.Printf("New device %s registered successfully \n", key)
+	log.Printf("New device %s with key %s registered successfully \n", deviceId, apiKey)
 	return nil
 }
 
-func UpdateDevice(dbname, key, screen string) error {
-	db, err := sql.Open("sqlite3", dbname)
+func UpdateDevice(dbname, deviceId, voltage, screen string) error {
+	db, err := sql.Open("sqlite", dbname)
 	if err != nil {
 		log.Fatal(err)
 		return err
 	}
 	defer db.Close()
 
-	_, err = db.Exec("UPDATE devices SET screen = ? WHERE key = ?", screen, key)
+	_, err = db.Exec("UPDATE devices SET screen = ?, voltage = ? WHERE device_id = ?", screen, voltage, deviceId)
 	if err != nil {
 		log.Fatal(err)
 		return err
 	}
-	log.Printf("DB: record for device %s updated successfully \n", key)
+	log.Printf("DB: record for device %s updated successfully \n", deviceId)
 	return nil
 }
 
-func GetDevice(dbname, key string) (string, error) {
+func GetDeviceScreen(dbname, deviceId string) (string, error) {
 	var screen string
-	db, err := sql.Open("sqlite3", dbname)
+	db, err := sql.Open("sqlite", dbname)
 	if err != nil {
 		log.Fatal(err)
 		return "", err
 	}
 	defer db.Close()
 
-	stmt, err := db.Prepare("SELECT screen FROM devices WHERE key = ?")
+	stmt, err := db.Prepare("SELECT screen FROM devices WHERE device_id = ?")
 	if err != nil {
 		log.Fatal(err)
 		return "", err
 	}
 	defer stmt.Close()
 
-	err = stmt.QueryRow(key).Scan(&screen)
+	err = stmt.QueryRow(deviceId).Scan(&screen)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("DB: Failed to get screen for device ID %s, error: %s", deviceId, err)
+		return "", err
 	}
-	log.Printf("DB: found screen %s by device key %s \n", screen, key)
+	log.Printf("DB: found screen %s by device key %s \n", screen, deviceId)
 
 	return screen, nil
+}
+
+func GetDeviceVoltage(dbname, apiKey string) (float32, error) {
+	var voltage float32
+	db, err := sql.Open("sqlite", dbname)
+	if err != nil {
+		log.Fatal(err)
+		return 0, err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare("SELECT voltage FROM devices WHERE api_key = ?")
+	if err != nil {
+		log.Fatal(err)
+		return 0, err
+	}
+	defer stmt.Close()
+
+	err = stmt.QueryRow(apiKey).Scan(&voltage)
+	if err != nil {
+		log.Printf("DB: Failed to get voltage for api_key %s, error: %s", apiKey, err)
+		return 0, err
+	}
+	log.Printf("DB: found voltage %.2f by device key %s \n", voltage, apiKey)
+
+	return voltage, nil
+}
+
+func GetDeviceList(dbname string) ([]string, error) {
+	var keys []string
+	db, err := sql.Open("sqlite", dbname)
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare("SELECT api_key FROM devices")
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query()
+
+	for rows.Next() {
+		key := ""
+		err := rows.Scan(&key)
+		if err != nil {
+			log.Fatal(err)
+		}
+		keys = append(keys, key)
+	}
+	log.Printf("DB: found device keys %s \n", keys)
+
+	return keys, nil
 }

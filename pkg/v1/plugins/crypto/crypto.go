@@ -85,7 +85,7 @@ func GetCryptoHistoryData(symbol string) (render.ChartRecords, error) {
 	return records, nil
 }
 
-func RenderScreenCrypto(width, height int, coin, filename string) error {
+func RenderScreenCrypto(width, height int, coin, filename string, voltage float32) error {
 	b, _ := GetCryptoData(coin)
 	r, _ := GetCryptoHistoryData(coin)
 	img := render.NewImage(width, height)
@@ -106,7 +106,7 @@ func RenderScreenCrypto(width, height int, coin, filename string) error {
 		return err
 	}
 
-	if err := render.WriteFile(filename, img); err != nil {
+	if err := render.WriteFile(filename, img, voltage); err != nil {
 		return err
 	}
 

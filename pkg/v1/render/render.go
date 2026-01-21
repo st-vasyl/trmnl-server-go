@@ -32,6 +32,16 @@ type ChartRecord struct {
 	V float64
 }
 
+type BoxPlotRecords struct {
+	BoxPlotRecord []BoxPlotRecord
+}
+
+type BoxPlotRecord struct {
+	T    float64
+	Vmin float64
+	Vmax float64
+}
+
 // Generate an empty image with given width and height
 func NewImage(width, height int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
@@ -84,7 +94,7 @@ func WriteFile(filename string, img *image.RGBA, voltage float32) error {
 		return err
 	}
 
-	if err := AddImageFromBase64(img, voltage, image.Point{-750, -20}); err != nil {
+	if err := AddImageVoltage(img, voltage, image.Point{-750, -5}); err != nil {
 		return err
 	}
 
@@ -134,11 +144,40 @@ func AddChart(img *image.RGBA, r ChartRecords, chartWidth, chartHeight int, poin
 		log.Panic(err)
 	}
 	line.Color = color.RGBA{A: 255}
-
+	line.StepStyle = plotter.PostStep
 	p.Add(line)
 
 	buf := bytes.NewBuffer(nil)
 	writerTo, err := p.WriterTo(vg.Points(float64(chartWidth)), vg.Points(float64(chartHeight)), "png")
+	writerTo.WriteTo(buf)
+
+	chart, _, _ := image.Decode(buf)
+	draw.Draw(img, img.Bounds(), chart, point, draw.Over)
+	return nil
+}
+
+func AddStocksChart(img *image.RGBA, records BoxPlotRecords, chartWidth, chartHeight int, point image.Point) error {
+	p := plot.New()
+	xticks := plot.TimeTicks{Format: "2006-01-02\n15:04"}
+	p.X.Tick.Marker = xticks
+	p.Add(plotter.NewGrid())
+	var values []*plotter.BoxPlot
+
+	w := vg.Points(2)
+	for _, v := range records.BoxPlotRecord {
+		t := time.UnixMilli(int64(v.T))
+		box := make(plotter.Values, 2)
+		box[0] = v.Vmin
+		box[1] = v.Vmax
+		b, _ := plotter.NewBoxPlot(w, float64(t.Unix()), box)
+		values = append(values, b)
+		p.Add(b)
+	}
+
+	// p.Add(values)
+
+	buf := bytes.NewBuffer(nil)
+	writerTo, _ := p.WriterTo(vg.Points(float64(chartWidth)), vg.Points(float64(chartHeight)), "png")
 	writerTo.WriteTo(buf)
 
 	chart, _, _ := image.Decode(buf)
@@ -185,7 +224,18 @@ func ConvertToGray(img *image.RGBA) *image.Gray {
 	return target
 }
 
-func AddImageFromBase64(img *image.RGBA, voltage float32, point image.Point) error {
+func AddImageFromBase64(img *image.RGBA, img64 string, point image.Point) error {
+	data := base64.NewDecoder(base64.StdEncoding, strings.NewReader(img64))
+	srcImg, err := png.Decode(data)
+	if err != nil {
+		log.Fatalln("Unable to decode png from base64 image")
+		return err
+	}
+	draw.Draw(img, img.Bounds(), srcImg, point, draw.Over)
+	return nil
+}
+
+func AddImageVoltage(img *image.RGBA, voltage float32, point image.Point) error {
 	batteryPercentage := ((voltage - 3) / 0.012)
 	var batteryImage string
 
@@ -206,13 +256,10 @@ func AddImageFromBase64(img *image.RGBA, voltage float32, point image.Point) err
 		batteryImage = icons.Battery0
 	}
 
-	data := base64.NewDecoder(base64.StdEncoding, strings.NewReader(batteryImage))
-	srcImg, err := png.Decode(data)
-	if err != nil {
-		log.Fatalln("Unable to decode png from base64 image")
+	if err := AddImageFromBase64(img, batteryImage, image.Point{-750, -5}); err != nil {
 		return err
 	}
-	draw.Draw(img, img.Bounds(), srcImg, point, draw.Over)
+
 	return nil
 }
 

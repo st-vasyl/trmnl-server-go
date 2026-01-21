@@ -4,6 +4,7 @@ go 1.25.5
 
 require (
 	github.com/anthonynsimon/bild v0.14.0
+	github.com/rs/zerolog v1.34.0
 	github.com/thanhpk/randstr v1.0.6
 	golang.org/x/image v0.34.0
 	gonum.org/v1/plot v0.16.0
@@ -19,6 +20,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect

@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"trmnl-server-go/pkg/v1/render"
+
+	"github.com/rs/zerolog/log"
 )
 
 type HistoryRecords struct {
@@ -38,6 +40,11 @@ func GetCryptoData(symbol string) (Crypto, error) {
 	r.Header.Set("Accept", "application/json")
 	r.Header.Set("Accept-Language", "en-US")
 	if err != nil {
+		log.Error().
+			Str("plugin", "crypto").
+			Str("func", "GetCryptoData").
+			Err(err).
+			Msg("Unable to get json data from API")
 		return c, err
 	}
 	body, err := io.ReadAll(r.Body)
@@ -48,7 +55,12 @@ func GetCryptoData(symbol string) (Crypto, error) {
 
 	err = json.Unmarshal([]byte(body), &c)
 	if err != nil {
-		panic(err)
+		log.Error().
+			Str("plugin", "crypto").
+			Str("func", "GetCryptoData").
+			Err(err).
+			Msg("Unable unmarshal json data")
+		return c, err
 	}
 
 	return c, nil
@@ -63,6 +75,11 @@ func GetCryptoHistoryData(symbol string) (render.ChartRecords, error) {
 	r.Header.Set("Accept", "application/json")
 	r.Header.Set("Accept-Language", "en-US")
 	if err != nil {
+		log.Error().
+			Str("plugin", "crypto").
+			Str("func", "GetCryptoHistoryData").
+			Err(err).
+			Msg("Unable to get json data from API")
 		return records, err
 	}
 	body, err := io.ReadAll(r.Body)
@@ -73,7 +90,12 @@ func GetCryptoHistoryData(symbol string) (render.ChartRecords, error) {
 
 	err = json.Unmarshal([]byte(body), &hr)
 	if err != nil {
-		panic(err)
+		log.Error().
+			Str("plugin", "crypto").
+			Str("func", "GetCryptoHistoryData").
+			Err(err).
+			Msg("Unable unmarshal json data")
+		return records, err
 	}
 
 	for _, v := range hr.Prices {

@@ -4,25 +4,29 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"sync"
 	"time"
 	"trmnl-server-go/pkg/v1/db"
 	"trmnl-server-go/pkg/v1/plugins/crypto"
+	"trmnl-server-go/pkg/v1/plugins/stocks"
 	"trmnl-server-go/pkg/v1/plugins/weather"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 const (
-	hostname   = "172.16.30.187"
-	port       = "8080"
-	dbname     = "./trmnl.db"
-	timeout    = 300
-	updateTime = 3600
+	hostname         = "172.16.30.187"
+	port             = "8080"
+	dbname           = "./trmnl.db"
+	timeout          = 300
+	updateTime       = 3600
+	twelvedataApiKey = "demo"
 )
 
-var plugins = []string{"crypto", "weather"}
+var plugins = []string{"crypto", "weather", "stocks_aapl"}
 var log_level = "info"
 
 type DisplayResponse struct {
@@ -43,10 +47,45 @@ type SetupResponse struct {
 	Message    string `json:"message"`
 }
 
+func init() {
+	zerolog.TimeFieldFormat = ""
+	zerolog.TimestampFunc = func() time.Time {
+		return time.Date(2008, 1, 8, 17, 5, 05, 0, time.UTC)
+	}
+	log.Logger = zerolog.New(os.Stdout).With().Timestamp().Logger()
+}
+
+func main() {
+	err := db.InitDB(dbname)
+	if err != nil {
+		log.Error().
+			Str("dbname", dbname).
+			Err(err).
+			Msg("Failed to init DB")
+		os.Exit(1)
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		HandleHTTP("main", "00000", "0.0.1", port)
+	}()
+	go func() {
+		defer wg.Done()
+		UpdateData()
+	}()
+	wg.Wait()
+	log.Info().Msg("Services has shut down")
+}
+
 func renderDisplay(port, deviceId, apiKey, voltage string) (res []byte) {
 	screen, err := db.GetDeviceScreen(dbname, deviceId)
 	if err != nil {
-		log.Printf("ERROR: no device with ID %s in the DB. Adding ..", deviceId)
+		log.Debug().
+			Str("deviceId", deviceId).
+			Err(err).
+			Msg("Device not found in the DB. Registreing new device.")
 		db.RegisterDevice(dbname, deviceId, apiKey, plugins[0])
 	}
 	filename := fmt.Sprintf("public/%s_%s.png", apiKey, screen)
@@ -61,7 +100,13 @@ func renderDisplay(port, deviceId, apiKey, voltage string) (res []byte) {
 	}
 	res, err = json.Marshal(r)
 	if err != nil {
-		log.Fatalf("Error occurred during marshalling: %s", err.Error())
+		log.Error().
+			Str("func", "renderDisplay").
+			Str("api-key", apiKey).
+			Str("id", deviceId).
+			Str("voltage", voltage).
+			Err(err).
+			Msg("Unable to marshal display responce")
 	}
 	nextScreen := getNextScreen(screen)
 	err = db.UpdateDevice(dbname, deviceId, voltage, nextScreen)
@@ -78,10 +123,17 @@ func HandleHTTP(branch, commithash, version, port string) {
 	http.HandleFunc("/public/", ServeFiles)
 
 	http.HandleFunc("/api/setup", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("Getting device registration: %s \n", r.Header.Get("Access-Token"))
 		apiKey := r.Header.Get("Access-Token")
 		deviceId := r.Header.Get("Id")
+		voltage := r.Header.Get("Battery-Voltage")
 		db.RegisterDevice(dbname, deviceId, apiKey, plugins[0])
+
+		log.Info().
+			Str("func", "setup").
+			Str("api-key", apiKey).
+			Str("id", deviceId).
+			Str("voltage", voltage).
+			Msg("Requested setup from device")
 
 		s := SetupResponse{
 			Status:     200,
@@ -92,12 +144,22 @@ func HandleHTTP(branch, commithash, version, port string) {
 		}
 		msg, err := json.Marshal(s)
 		if err != nil {
-			log.Fatalf("Error occurred during marshalling: %s", err.Error())
+			log.Error().
+				Str("func", "setup").
+				Str("api-key", apiKey).
+				Str("id", deviceId).
+				Str("voltage", voltage).
+				Err(err).
+				Msg("Unable to marshal setup responce")
 		}
 
-		if log_level == "debug" {
-			log.Printf("DEBUG: setup responce %s \n", msg)
-		}
+		log.Debug().
+			Str("func", "setup").
+			Str("api-key", apiKey).
+			Str("id", deviceId).
+			Str("voltage", voltage).
+			Str("responce", string(msg)).
+			Msg("Setup responce to device")
 		w.WriteHeader(200)
 		w.Write([]byte(msg))
 	})
@@ -106,75 +168,97 @@ func HandleHTTP(branch, commithash, version, port string) {
 		apiKey := r.Header.Get("Access-Token")
 		deviceId := r.Header.Get("Id")
 		voltage := r.Header.Get("Battery-Voltage")
-		log.Printf("Rendering display for device: %s \n", r.Header.Get("Access-Token"))
 
-		if log_level == "debug" {
-			log.Printf("DEBUG: recieved headers from device %s \n", r.Header.Get("Access-Token"))
-			for k, v := range r.Header {
-				log.Printf("Header field %s, Value %s \n", k, v)
-			}
-		}
+		log.Info().
+			Str("func", "display").
+			Str("api-key", apiKey).
+			Str("id", deviceId).
+			Str("voltage", voltage).
+			Msg("Requested display from device")
+
+			// log.Printf("DEBUG: recieved headers from device %s \n", r.Header.Get("Access-Token"))
+			// for k, v := range r.Header {
+			// 	log.Printf("Header field %s, Value %s \n", k, v)
+			// }
 
 		msg := renderDisplay(port, deviceId, apiKey, voltage)
 
-		if log_level == "debug" {
-			log.Printf("DEBUG: display responce %s \n", msg)
-		}
+		log.Debug().
+			Str("func", "display").
+			Str("api-key", apiKey).
+			Str("id", deviceId).
+			Str("voltage", voltage).
+			Str("responce", string(msg)).
+			Msg("Display responce to device")
 
 		w.WriteHeader(200)
 		w.Write([]byte(msg))
 	})
 
 	http.HandleFunc("POST /api/log", func(w http.ResponseWriter, r *http.Request) {
+		apiKey := r.Header.Get("Access-Token")
+		deviceId := r.Header.Get("Id")
+		voltage := r.Header.Get("Battery-Voltage")
+
 		body, err := io.ReadAll(r.Body)
 		r.Body.Close()
 		if err != nil {
-			log.Fatal(err)
+			log.Error().
+				Str("func", "log").
+				Str("api-key", apiKey).
+				Str("id", deviceId).
+				Str("voltage", voltage).
+				Err(err).
+				Msg("Unable to read the log record")
 		}
 
-		log.Printf("Recieving logs from device: %s \n", r.Header.Get("Access-Token"))
+		log.Info().
+			Str("func", "log").
+			Str("api-key", apiKey).
+			Str("id", deviceId).
+			Str("voltage", voltage).
+			Str("logs", string(body)).
+			Msg("Requested display from device")
 
-		if log_level == "debug" || log_level == "info" {
-			log.Printf("DEBUG: Logse %s \n", string(body))
-		}
 		w.WriteHeader(200)
 		w.Write([]byte("OK"))
 	})
 
-	log.Printf("Branch: %s, CommitHash: %s, Version: %s \n", branch, commithash, version)
-	log.Printf("HTTP server started on port %s \n", port)
+	log.Info().
+		Str("func", "HandleHTTP").
+		Str("branch", branch).
+		Str("commit", commithash).
+		Str("version", version).
+		Str("port", port).
+		Msg("HTTP server started successfully")
 
 	err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+		log.Error().
+			Str("func", "HandleHTTP").
+			Str("branch", branch).
+			Str("commit", commithash).
+			Str("version", version).
+			Str("port", port).
+			Err(err).
+			Msg("Cannot start HTTP server")
 	}
 }
 
 func ServeFiles(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Requested file %s", r.RequestURI)
-	p := "." + r.URL.Path
-	http.ServeFile(w, r, p)
-}
+	apiKey := r.Header.Get("Access-Token")
+	deviceId := r.Header.Get("Id")
+	voltage := r.Header.Get("Battery-Voltage")
+	path := "." + r.URL.Path
+	log.Info().
+		Str("func", "ServeFiles").
+		Str("api-key", apiKey).
+		Str("id", deviceId).
+		Str("voltage", voltage).
+		Str("file", r.RequestURI).
+		Msg("Requested file for device")
 
-func main() {
-	err := db.InitDB(dbname)
-	if err != nil {
-		log.Printf("FATAL: Failed to init DB %s", err)
-		os.Exit(1)
-	}
-
-	wg := sync.WaitGroup{}
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		HandleHTTP("main", "00000", "0.0.1", port)
-	}()
-	go func() {
-		defer wg.Done()
-		UpdateData()
-	}()
-	wg.Wait()
-	log.Printf("Services has shut down \n")
+	http.ServeFile(w, r, path)
 }
 
 func UpdateData() {
@@ -183,14 +267,19 @@ func UpdateData() {
 		for _, key := range keys {
 			prefix := fmt.Sprintf("public/%s", key)
 			voltage, _ := db.GetDeviceVoltage(dbname, key)
-			// stocks.RenderStocks(
-			// 	"AAPL",
-			// 	"72Q6JP7LLFX31QUY",
-			// 	800,
-			// 	480,
-			// 	"public/stocks.png",
-			// )
-			// log.Printf("Update: Stock data \n")
+			stocks.RenderScreenStocks(
+				800,
+				480,
+				"AAPL",
+				twelvedataApiKey,
+				fmt.Sprintf("%s_stocks_aapl.png", prefix),
+				voltage,
+			)
+			log.Info().
+				Str("func", "update").
+				Str("file", fmt.Sprintf("%s_stocks_aapl.png", prefix)).
+				Str("plugin", "stocks").
+				Msg("Updated data for plugin successfully")
 
 			crypto.RenderScreenCrypto(
 				800,
@@ -199,7 +288,11 @@ func UpdateData() {
 				fmt.Sprintf("%s_crypto.png", prefix),
 				voltage,
 			)
-			log.Printf("Update data for plugin: crypto \n")
+			log.Info().
+				Str("func", "update").
+				Str("file", fmt.Sprintf("%s_crypto.png", prefix)).
+				Str("plugin", "crypto").
+				Msg("Updated data for plugin successfully")
 
 			weather.RenderScreenWeather(
 				800,
@@ -208,7 +301,11 @@ func UpdateData() {
 				fmt.Sprintf("%s_weather.png", prefix),
 				voltage,
 			)
-			log.Printf("Update data for plugin: weather \n")
+			log.Info().
+				Str("func", "update").
+				Str("file", fmt.Sprintf("%s_weather.png", prefix)).
+				Str("plugin", "weather").
+				Msg("Updated data for plugin successfully")
 
 			// random.RenderRandomImage(
 			// 	800,

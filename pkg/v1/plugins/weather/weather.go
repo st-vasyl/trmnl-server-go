@@ -26,7 +26,13 @@ type Weather struct {
 	Elevation    float64      `json:"elevation"`
 	CurrentUnits WeatherUnits `json:"current_units"`
 	Current      WeatherData  `json:"current"`
+	Hourly       Hourly       `json:"hourly"`
 	Daily        Daily        `json:"daily"`
+}
+
+type Hourly struct {
+	Time        []string  `json:"time"`
+	Temperature []float64 `json:"temperature_2m"`
 }
 
 type Daily struct {
@@ -85,7 +91,7 @@ func getLocation(city string) (Location, error) {
 func getWeather(l Location) (Weather, error) {
 	var w Weather
 
-	url := fmt.Sprintf("https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,surface_pressure,weather_code&daily=temperature_2m_max,temperature_2m_min,sunset,sunrise&timezone=auto", l.LocationResult[0].Latitude, l.LocationResult[0].Longitude)
+	url := fmt.Sprintf("https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,surface_pressure,weather_code&hourly=temperature_2m&daily=temperature_2m_max,temperature_2m_min,sunset,sunrise&wind_speed_unit=ms&timezone=auto", l.LocationResult[0].Latitude, l.LocationResult[0].Longitude)
 	r, err := http.Get(url)
 	r.Header.Set("Accept", "application/json")
 	r.Header.Set("Accept-Language", "en-US")
@@ -111,18 +117,13 @@ func RenderScreenWeather(width, height int, city, filename string, voltage float
 	w, _ := getWeather(l)
 	img := render.NewImage(width, height)
 
-	var daily_min render.ChartRecords
-	var daily_max render.ChartRecords
-	for i := range len(w.Daily.Time) {
-		var min render.ChartRecord
-		var max render.ChartRecord
-		t, _ := time.Parse("2006-01-02", w.Daily.Time[i])
-		min.T = float64(t.UnixMilli())
-		min.V = w.Daily.TMin[i]
-		max.T = float64(t.UnixMilli())
-		max.V = w.Daily.TMax[i]
-		daily_min.ChartRecord = append(daily_min.ChartRecord, min)
-		daily_max.ChartRecord = append(daily_max.ChartRecord, max)
+	var temperature render.ChartRecords
+	for i := range len(w.Hourly.Time) {
+		var tmp render.ChartRecord
+		t, _ := time.Parse("2006-01-02T15:04", w.Hourly.Time[i])
+		tmp.T = float64(t.UnixMilli())
+		tmp.V = w.Hourly.Temperature[i]
+		temperature.ChartRecord = append(temperature.ChartRecord, tmp)
 	}
 
 	if err := render.AddText(img, fmt.Sprintf("%.1f %s", w.Current.Temperature_2m, w.CurrentUnits.Temperature_2m), image.Point{50, 50}, color.Black, 50); err != nil {
@@ -137,7 +138,7 @@ func RenderScreenWeather(width, height int, city, filename string, voltage float
 		return err
 	}
 
-	if err := render.AddText(img, fmt.Sprintf("Wind: %.1f m/s", w.Current.Wind_speed_10m*10/36), image.Point{400, 50}, color.Black, 30); err != nil {
+	if err := render.AddText(img, fmt.Sprintf("Wind: %.1f m/s", w.Current.Wind_speed_10m), image.Point{400, 50}, color.Black, 30); err != nil {
 		return err
 	}
 
@@ -149,7 +150,7 @@ func RenderScreenWeather(width, height int, city, filename string, voltage float
 		return err
 	}
 
-	if err := render.AddWeatherChart(img, daily_min, daily_max, 550, 200, image.Point{-30, -200}); err != nil {
+	if err := render.AddChart(img, temperature, 550, 200, image.Point{-30, -200}); err != nil {
 		return err
 	}
 

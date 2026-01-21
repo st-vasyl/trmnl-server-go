@@ -111,14 +111,6 @@ func WriteFile(filename string, img *image.RGBA, voltage float32) error {
 	return nil
 }
 
-func drawLine(img *image.RGBA, startPosX, startPosY, EndPosX, EndPosY int) {
-	for x := startPosX; x <= EndPosX; x++ {
-		for y := startPosY; y <= EndPosY; y++ {
-			img.Set(x, y, color.Black)
-		}
-	}
-}
-
 func genPoints(r ChartRecords) plotter.XYs {
 	pts := make(plotter.XYs, len(r.ChartRecord))
 	i := 0
@@ -144,7 +136,6 @@ func AddChart(img *image.RGBA, r ChartRecords, chartWidth, chartHeight int, poin
 		log.Panic(err)
 	}
 	line.Color = color.RGBA{A: 255}
-	line.StepStyle = plotter.PostStep
 	p.Add(line)
 
 	buf := bytes.NewBuffer(nil)

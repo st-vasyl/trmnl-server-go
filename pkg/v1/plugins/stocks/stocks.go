@@ -202,7 +202,7 @@ func RenderScreenStocks(width, height int, symbol, apiKey, filename string, volt
 	}
 
 	low24, _ := strconv.ParseFloat(strings.TrimSpace(s.Low), 64)
-	if err := render.AddText(img, fmt.Sprintf("Low 24h:  $%.1f", low24), image.Point{50, 150}, color.Black, 30); err != nil {
+	if err := render.AddText(img, fmt.Sprintf("Low  24h: $%.1f", low24), image.Point{50, 150}, color.Black, 30); err != nil {
 		return err
 	}
 
@@ -212,7 +212,7 @@ func RenderScreenStocks(width, height int, symbol, apiKey, filename string, volt
 	}
 
 	low52w, _ := strconv.ParseFloat(strings.TrimSpace(s.FiftyTwoWeek.Low), 64)
-	if err := render.AddText(img, fmt.Sprintf("Low 52w:  $%.1f", low52w), image.Point{400, 150}, color.Black, 30); err != nil {
+	if err := render.AddText(img, fmt.Sprintf("Low  52w: $%.1f", low52w), image.Point{400, 150}, color.Black, 30); err != nil {
 		return err
 	}
 

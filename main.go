@@ -23,11 +23,10 @@ const (
 	dbname           = "./trmnl.db"
 	timeout          = 300
 	updateTime       = 3600
-	twelvedataApiKey = "demo"
+	twelvedataApiKey = "d79ba574546146b8b49def6c048988e4"
 )
 
-var plugins = []string{"crypto", "weather", "stocks_aapl"}
-var log_level = "info"
+var plugins = []string{"crypto", "weather", "stocks_aapl", "stocks_nvda"}
 
 type DisplayResponse struct {
 	Status         int    `json:"status,omitempty"`
@@ -271,13 +270,27 @@ func UpdateData() {
 				800,
 				480,
 				"AAPL",
-				twelvedataApiKey,
+				"demo",
 				fmt.Sprintf("%s_stocks_aapl.png", prefix),
 				voltage,
 			)
 			log.Info().
 				Str("func", "update").
 				Str("file", fmt.Sprintf("%s_stocks_aapl.png", prefix)).
+				Str("plugin", "stocks").
+				Msg("Updated data for plugin successfully")
+
+			stocks.RenderScreenStocks(
+				800,
+				480,
+				"NVDA",
+				twelvedataApiKey,
+				fmt.Sprintf("%s_stocks_nvda.png", prefix),
+				voltage,
+			)
+			log.Info().
+				Str("func", "update").
+				Str("file", fmt.Sprintf("%s_stocks_nvda.png", prefix)).
 				Str("plugin", "stocks").
 				Msg("Updated data for plugin successfully")
 

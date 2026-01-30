@@ -23,9 +23,12 @@ type Crypto struct {
 }
 
 type MarketData struct {
-	CurrentPrice Price `json:"current_price"`
-	High24h      Price `json:"high_24h"`
-	Low24h       Price `json:"low_24h"`
+	CurrentPrice        Price   `json:"current_price"`
+	High24h             Price   `json:"high_24h"`
+	Low24h              Price   `json:"low_24h"`
+	Diff_percentage_7d  float64 `json:"price_change_percentage_7d"`
+	Diff_percentage_30d float64 `json:"price_change_percentage_30d"`
+	Diff_percentage_1y  float64 `json:"price_change_percentage_1y"`
 }
 
 type Price struct {
@@ -112,7 +115,7 @@ func RenderScreenCrypto(width, height int, coin, filename string, voltage float3
 	r, _ := GetCryptoHistoryData(coin)
 	img := render.NewImage(width, height)
 
-	if err := render.AddText(img, fmt.Sprintf("$%d", b.MarketData.CurrentPrice.USD), image.Point{50, 50}, color.Black, 50); err != nil {
+	if err := render.AddText(img, fmt.Sprintf("%s: $%d", b.Name, b.MarketData.CurrentPrice.USD), image.Point{50, 50}, color.Black, 50); err != nil {
 		return err
 	}
 
@@ -121,6 +124,14 @@ func RenderScreenCrypto(width, height int, coin, filename string, voltage float3
 	}
 
 	if err := render.AddText(img, fmt.Sprintf("Low 24h:  $%d", b.MarketData.Low24h.USD), image.Point{50, 150}, color.Black, 30); err != nil {
+		return err
+	}
+
+	if err := render.AddText(img, fmt.Sprintf("Diff 1m: %.1f %s", b.MarketData.Diff_percentage_30d, "%"), image.Point{400, 100}, color.Black, 30); err != nil {
+		return err
+	}
+
+	if err := render.AddText(img, fmt.Sprintf("Diff 1y:  %.1f %s", b.MarketData.Diff_percentage_1y, "%"), image.Point{400, 150}, color.Black, 30); err != nil {
 		return err
 	}
 

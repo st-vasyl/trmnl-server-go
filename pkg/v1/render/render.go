@@ -235,8 +235,6 @@ func AddImageVoltage(img *image.RGBA, voltage float32, point image.Point) error 
 		batteryImage = icons.Battery100
 	case batteryPercentage > 70.0 && batteryPercentage <= 90.0:
 		batteryImage = icons.Battery80
-	case batteryPercentage > 70.0 && batteryPercentage <= 90.0:
-		batteryImage = icons.Battery80
 	case batteryPercentage > 50.0 && batteryPercentage <= 70.0:
 		batteryImage = icons.Battery60
 	case batteryPercentage > 30.0 && batteryPercentage <= 50.0:

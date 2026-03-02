@@ -1,0 +1,17 @@
+common:
+  external_url: "10.0.0.1:8080"
+  port: 8080
+  dbpath: "./trmnl.db"
+  refresh_time: 300
+  update_time: 3600
+  debug: true
+  enabled_plugins: ["twelvedata", "coingecko", "weather"]
+
+plugins:
+  twelvedata:
+    twelvedata_api_key: demo
+    symbols: ["googl", "nvda"]
+  coingecko:
+    symbols: ["bitcoin"]
+  weather:
+    location: Wroclaw

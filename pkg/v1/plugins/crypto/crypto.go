@@ -123,7 +123,7 @@ func RenderScreenCrypto(width, height int, coin, filename string, voltage float3
 		return err
 	}
 
-	if err := render.AddText(img, fmt.Sprintf("Low 24h:  $%d", b.MarketData.Low24h.USD), image.Point{50, 150}, color.Black, 30); err != nil {
+	if err := render.AddText(img, fmt.Sprintf("Low  24h: $%d", b.MarketData.Low24h.USD), image.Point{50, 150}, color.Black, 30); err != nil {
 		return err
 	}
 
@@ -131,7 +131,7 @@ func RenderScreenCrypto(width, height int, coin, filename string, voltage float3
 		return err
 	}
 
-	if err := render.AddText(img, fmt.Sprintf("Diff 1y:  %.1f %s", b.MarketData.Diff_percentage_1y, "%"), image.Point{400, 150}, color.Black, 30); err != nil {
+	if err := render.AddText(img, fmt.Sprintf("Diff 1y: %.1f %s", b.MarketData.Diff_percentage_1y, "%"), image.Point{400, 150}, color.Black, 30); err != nil {
 		return err
 	}
 

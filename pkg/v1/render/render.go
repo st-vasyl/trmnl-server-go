@@ -8,10 +8,10 @@ import (
 	"image/draw"
 	"image/jpeg"
 	"image/png"
-	"log"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 	"trmnl-server-go/pkg/v1/icons"
 
@@ -22,6 +22,24 @@ import (
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
 )
+
+var (
+	cachedFont     *opentype.Font
+	cachedFontOnce sync.Once
+	cachedFontErr  error
+)
+
+func getFont() (*opentype.Font, error) {
+	cachedFontOnce.Do(func() {
+		fontBytes, err := os.ReadFile("font.ttf")
+		if err != nil {
+			cachedFontErr = err
+			return
+		}
+		cachedFont, cachedFontErr = opentype.Parse(fontBytes)
+	})
+	return cachedFont, cachedFontErr
+}
 
 type ChartRecords struct {
 	ChartRecord []ChartRecord
@@ -52,13 +70,7 @@ func NewImage(width, height int) *image.RGBA {
 
 // Add a text to the image with given string, start point and a font size
 func AddText(img *image.RGBA, text string, point image.Point, col color.Color, fontSize float64) error {
-	// TODO: Remove custom font
-	fontBytes, err := os.ReadFile("font.ttf")
-	if err != nil {
-		return err
-	}
-
-	ttf, err := opentype.Parse(fontBytes)
+	ttf, err := getFont()
 	if err != nil {
 		return err
 	}
@@ -133,7 +145,7 @@ func AddChart(img *image.RGBA, r ChartRecords, chartWidth, chartHeight int, poin
 
 	line, _, err := plotter.NewLinePoints(data)
 	if err != nil {
-		log.Panic(err)
+		return err
 	}
 	line.Color = color.RGBA{A: 255}
 	p.Add(line)
@@ -142,7 +154,11 @@ func AddChart(img *image.RGBA, r ChartRecords, chartWidth, chartHeight int, poin
 	writerTo, err := p.WriterTo(vg.Points(float64(chartWidth)), vg.Points(float64(chartHeight)), "png")
 	writerTo.WriteTo(buf)
 
-	chart, _, _ := image.Decode(buf)
+	chart, _, err := image.Decode(buf)
+	if err != nil {
+		return err
+	}
+
 	draw.Draw(img, img.Bounds(), chart, point, draw.Over)
 	return nil
 }
@@ -160,7 +176,11 @@ func AddStocksChart(img *image.RGBA, records BoxPlotRecords, chartWidth, chartHe
 		box := make(plotter.Values, 2)
 		box[0] = v.Vmin
 		box[1] = v.Vmax
-		b, _ := plotter.NewBoxPlot(w, float64(t.Unix()), box)
+		b, err := plotter.NewBoxPlot(w, float64(t.Unix()), box)
+		if err != nil {
+			return err
+		}
+
 		values = append(values, b)
 		p.Add(b)
 	}
@@ -168,10 +188,16 @@ func AddStocksChart(img *image.RGBA, records BoxPlotRecords, chartWidth, chartHe
 	// p.Add(values)
 
 	buf := bytes.NewBuffer(nil)
-	writerTo, _ := p.WriterTo(vg.Points(float64(chartWidth)), vg.Points(float64(chartHeight)), "png")
+	writerTo, err := p.WriterTo(vg.Points(float64(chartWidth)), vg.Points(float64(chartHeight)), "png")
+	if err != nil {
+		return err
+	}
 	writerTo.WriteTo(buf)
 
-	chart, _, _ := image.Decode(buf)
+	chart, _, err := image.Decode(buf)
+	if err != nil {
+		return err
+	}
 	draw.Draw(img, img.Bounds(), chart, point, draw.Over)
 	return nil
 }
@@ -185,7 +211,7 @@ func AddWeatherChart(img *image.RGBA, daily_min, daily_max ChartRecords, chartWi
 
 	daily_min_line, _, err := plotter.NewLinePoints(daily_min_data)
 	if err != nil {
-		log.Panic(err)
+		return err
 	}
 	daily_min_line.Color = color.RGBA{A: 255}
 
@@ -195,7 +221,7 @@ func AddWeatherChart(img *image.RGBA, daily_min, daily_max ChartRecords, chartWi
 
 	daily_max_line, _, err := plotter.NewLinePoints(daily_max_data)
 	if err != nil {
-		log.Panic(err)
+		return err
 	}
 	daily_max_line.Color = color.RGBA{A: 255}
 
@@ -204,7 +230,10 @@ func AddWeatherChart(img *image.RGBA, daily_min, daily_max ChartRecords, chartWi
 	writerTo, err := p.WriterTo(vg.Points(float64(chartWidth)), vg.Points(float64(chartHeight)), "png")
 	writerTo.WriteTo(buf)
 
-	chart, _, _ := image.Decode(buf)
+	chart, _, err := image.Decode(buf)
+	if err != nil {
+		return err
+	}
 	draw.Draw(img, img.Bounds(), chart, point, draw.Over)
 	return nil
 }
@@ -219,7 +248,6 @@ func AddImageFromBase64(img *image.RGBA, img64 string, point image.Point) error 
 	data := base64.NewDecoder(base64.StdEncoding, strings.NewReader(img64))
 	srcImg, err := png.Decode(data)
 	if err != nil {
-		log.Fatalln("Unable to decode png from base64 image")
 		return err
 	}
 	draw.Draw(img, img.Bounds(), srcImg, point, draw.Over)
@@ -245,7 +273,7 @@ func AddImageVoltage(img *image.RGBA, voltage float32, point image.Point) error 
 		batteryImage = icons.Battery0
 	}
 
-	if err := AddImageFromBase64(img, batteryImage, image.Point{-750, -5}); err != nil {
+	if err := AddImageFromBase64(img, batteryImage, point); err != nil {
 		return err
 	}
 

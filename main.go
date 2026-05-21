@@ -7,6 +7,11 @@ import (
 	"trmnl-server-go/pkg/v1/config"
 	"trmnl-server-go/pkg/v1/db"
 	"trmnl-server-go/pkg/v1/handler"
+	"trmnl-server-go/pkg/v1/plugin"
+	"trmnl-server-go/pkg/v1/plugins/crypto"
+	"trmnl-server-go/pkg/v1/plugins/random"
+	"trmnl-server-go/pkg/v1/plugins/stocks"
+	"trmnl-server-go/pkg/v1/plugins/weather"
 	"trmnl-server-go/pkg/v1/worker"
 
 	"github.com/rs/zerolog"
@@ -29,30 +34,61 @@ func main() {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
 
-	log.Info().
-		Str("config", configFile).
-		Str("DB", c.Common.Dbpath).
-		Msg("Services running")
+	log.Info().Str("config", configFile).Str("db", c.Common.Dbpath).Msg("Services starting")
 
-	err := db.InitDB(c.Common.Dbpath)
-	if err != nil {
-		log.Error().
-			Str("dbpath", c.Common.Dbpath).
-			Err(err).
-			Msg("Failed to init DB")
+	if err := db.InitDB(c.Common.Dbpath); err != nil {
+		log.Error().Str("dbpath", c.Common.Dbpath).Err(err).Msg("Failed to init DB")
 		os.Exit(1)
 	}
 
+	plugins := buildPlugins(&c)
+
 	wg := sync.WaitGroup{}
-	wg.Add(1)
+	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		handler.Serve("0.0.1", &c)
+		handler.Serve("0.0.1", &c, plugins)
 	}()
 	go func() {
 		defer wg.Done()
-		worker.UpdateData(&c)
+		worker.UpdateData(&c, plugins)
 	}()
 	wg.Wait()
-	log.Info().Msg("Services has shut down")
+
+	log.Info().Msg("Services shut down")
+}
+
+// buildPlugins constructs the active plugin list from config.
+// To enable or disable a plugin, add or remove it from enabled_plugins in config.yaml.
+func buildPlugins(c *config.Config) []plugin.Plugin {
+	enabled := make(map[string]bool, len(c.Common.EnabledPlugins))
+	for _, name := range c.Common.EnabledPlugins {
+		enabled[name] = true
+	}
+
+	var plugins []plugin.Plugin
+
+	if enabled["weather"] {
+		plugins = append(plugins, &weather.WeatherPlugin{
+			Location: c.Plugins.Weather.Location,
+		})
+	}
+	if enabled["twelvedata"] {
+		plugins = append(plugins, &stocks.StocksPlugin{
+			Symbols: c.Plugins.Twelvedata.Symbols,
+			ApiKey:  c.Plugins.Twelvedata.TwelveDataAPIKey,
+		})
+	}
+	if enabled["coingecko"] {
+		plugins = append(plugins, &crypto.CryptoPlugin{
+			Symbols: c.Plugins.Coingecko.Symbols,
+		})
+	}
+	if enabled["random"] {
+		plugins = append(plugins, &random.RandomPlugin{
+			ApiKey: c.Plugins.Random.APIKey,
+		})
+	}
+
+	return plugins
 }

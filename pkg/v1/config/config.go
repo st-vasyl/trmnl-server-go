@@ -28,7 +28,7 @@ type Config struct {
 }
 
 type Common struct {
-	ExternalUrl    string   `yaml:"external_url"`
+	ExternalURL    string   `yaml:"external_url"`
 	Port           int      `yaml:"port"`
 	Dbpath         string   `yaml:"dbpath"`
 	RefreshTime    int      `yaml:"refresh_time"`
@@ -41,10 +41,11 @@ type Plugins struct {
 	Twelvedata Twelvedata `yaml:"twelvedata"`
 	Coingecko  Coingecko  `yaml:"coingecko"`
 	Weather    Weather    `yaml:"weather"`
+	Random     Random     `yaml:"random"`
 }
 
 type Twelvedata struct {
-	TwelveDataApiKey string   `yaml:"twelvedata_api_key"`
+	TwelveDataAPIKey string   `yaml:"twelvedata_api_key"`
 	Symbols          []string `yaml:"symbols"`
 }
 
@@ -56,17 +57,17 @@ type Weather struct {
 	Location string `yaml:"location"`
 }
 
+type Random struct {
+	APIKey string `yaml:"api_key"`
+}
+
 func GetConfig(filename string) (Config, error) {
 	var c Config
 
 	// Open the configuration file.
 	file, err := os.Open(filename)
 	if err != nil {
-		log.Error().
-			Str("plugin", "config").
-			Str("func", "GetConfig").
-			Err(err).
-			Msg("Unable to open config file")
+		log.Error().Err(err).Msg("Unable to open config file")
 		os.Exit(1)
 	}
 	defer file.Close()
@@ -75,11 +76,7 @@ func GetConfig(filename string) (Config, error) {
 	decoder := yaml.NewDecoder(file)
 	err = decoder.Decode(&c)
 	if err != nil {
-		log.Error().
-			Str("plugin", "config").
-			Str("func", "GetConfig").
-			Err(err).
-			Msg("Error decoding file")
+		log.Error().Err(err).Msg("Error decoding file")
 		os.Exit(1)
 	}
 

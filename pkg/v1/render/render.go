@@ -8,10 +8,10 @@ import (
 	"image/draw"
 	"image/jpeg"
 	"image/png"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 	"trmnl-server-go/pkg/v1/icons"
 
@@ -23,22 +23,24 @@ import (
 	"gonum.org/v1/plot/vg"
 )
 
-var (
-	cachedFont     *opentype.Font
-	cachedFontOnce sync.Once
-	cachedFontErr  error
-)
+var cachedFont *opentype.Font
+
+// SetFont parses and caches the TTF bytes for all subsequent AddText calls.
+// Must be called once at startup before rendering begins.
+func SetFont(ttfBytes []byte) error {
+	f, err := opentype.Parse(ttfBytes)
+	if err != nil {
+		return err
+	}
+	cachedFont = f
+	return nil
+}
 
 func getFont() (*opentype.Font, error) {
-	cachedFontOnce.Do(func() {
-		fontBytes, err := os.ReadFile("font.ttf")
-		if err != nil {
-			cachedFontErr = err
-			return
-		}
-		cachedFont, cachedFontErr = opentype.Parse(fontBytes)
-	})
-	return cachedFont, cachedFontErr
+	if cachedFont == nil {
+		return nil, fmt.Errorf("font not initialized: call render.SetFont first")
+	}
+	return cachedFont, nil
 }
 
 type ChartRecords struct {

@@ -6,12 +6,14 @@ import (
 	"time"
 	"trmnl-server-go/pkg/v1/config"
 	"trmnl-server-go/pkg/v1/db"
+	"trmnl-server-go/pkg/v1/fonts"
 	"trmnl-server-go/pkg/v1/handler"
 	"trmnl-server-go/pkg/v1/plugin"
 	"trmnl-server-go/pkg/v1/plugins/crypto"
 	"trmnl-server-go/pkg/v1/plugins/random"
 	"trmnl-server-go/pkg/v1/plugins/stocks"
 	"trmnl-server-go/pkg/v1/plugins/weather"
+	"trmnl-server-go/pkg/v1/render"
 	"trmnl-server-go/pkg/v1/worker"
 
 	"github.com/rs/zerolog"
@@ -38,6 +40,20 @@ func main() {
 
 	if err := db.InitDB(c.Common.Dbpath); err != nil {
 		log.Error().Str("dbpath", c.Common.Dbpath).Err(err).Msg("Failed to init DB")
+		os.Exit(1)
+	}
+
+	fontName := c.Common.FontName
+	if fontName == "" {
+		fontName = fonts.DefaultFont
+	}
+	fontBytes, err := fonts.Load(fontName)
+	if err != nil {
+		log.Error().Str("font", fontName).Err(err).Msg("Failed to load font")
+		os.Exit(1)
+	}
+	if err := render.SetFont(fontBytes); err != nil {
+		log.Error().Str("font", fontName).Err(err).Msg("Failed to parse font")
 		os.Exit(1)
 	}
 

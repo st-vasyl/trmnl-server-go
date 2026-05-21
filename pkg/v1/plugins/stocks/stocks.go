@@ -119,10 +119,10 @@ func getHistory(symbol, apiKey string) (render.BoxPlotRecords, error) {
 	var records render.BoxPlotRecords
 
 	now := time.Now()
-	weekAgo := now.AddDate(0, 0, -7)
+	weekAgo := now.AddDate(0, 0, -2)
 	startDate := fmt.Sprintf("%d-%02d-%02d", weekAgo.Year(), weekAgo.Month(), weekAgo.Day())
 	endDate := fmt.Sprintf("%d-%02d-%02dT%02d:%02d:%02d", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second())
-	url := fmt.Sprintf("https://api.twelvedata.com/time_series?symbol=%s&interval=1h&start_date=%s&end_date=%s&apikey=%s", symbol, startDate, endDate, apiKey)
+	url := fmt.Sprintf("https://api.twelvedata.com/time_series?symbol=%s&interval=15min&start_date=%s&end_date=%s&apikey=%s", symbol, startDate, endDate, apiKey)
 
 	body, err := httpclient.Get(url)
 	if err != nil {

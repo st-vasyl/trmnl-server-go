@@ -15,4 +15,5 @@ main
 server
 trmnl.db
 public/
+fonts/
 config.yaml

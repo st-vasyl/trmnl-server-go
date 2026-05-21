@@ -35,6 +35,7 @@ type Common struct {
 	UpdateTime     int      `yaml:"update_time"`
 	Debug          bool     `yaml:"debug"`
 	EnabledPlugins []string `yaml:"enabled_plugins"`
+	FontName       string   `yaml:"font_name"`
 }
 
 type Plugins struct {

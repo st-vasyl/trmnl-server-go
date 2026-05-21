@@ -6,6 +6,7 @@ common:
   update_time: 3600
   debug: true
   enabled_plugins: ["twelvedata", "coingecko", "weather"]
+  font_name: "Anonymous Pro"   # any Google Fonts family name
 
 plugins:
   twelvedata:

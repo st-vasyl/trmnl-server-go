@@ -116,7 +116,7 @@ func getQuote(symbol, apiKey string) (stock, error) {
 
 func getHistory(symbol, apiKey string) (render.BoxPlotRecords, error) {
 	var hr historyRecords
-	var records render.BoxPlotRecords
+	records := render.BoxPlotRecords{XLabels: make(map[float64]string)}
 
 	now := time.Now()
 	weekAgo := now.AddDate(0, 0, -2)
@@ -134,15 +134,20 @@ func getHistory(symbol, apiKey string) (render.BoxPlotRecords, error) {
 		return records, err
 	}
 
-	for _, v := range hr.Values {
+	var prevDay int
+	for i, v := range hr.Values {
 		t, _ := time.Parse("2006-01-02 15:04:05", v.Datetime)
 		vmin, _ := strconv.ParseFloat(strings.TrimSpace(v.Low), 64)
 		vmax, _ := strconv.ParseFloat(strings.TrimSpace(v.High), 64)
 		records.BoxPlotRecord = append(records.BoxPlotRecord, render.BoxPlotRecord{
-			T:    float64(t.UnixMilli()),
+			T:    float64(i),
 			Vmin: vmin,
 			Vmax: vmax,
 		})
+		if i == 0 || t.Day() != prevDay {
+			records.XLabels[float64(i)] = t.Format("01/02 15:04")
+		}
+		prevDay = t.Day()
 	}
 	return records, nil
 }

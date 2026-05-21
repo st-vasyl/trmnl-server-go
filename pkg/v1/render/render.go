@@ -54,12 +54,25 @@ type ChartRecord struct {
 
 type BoxPlotRecords struct {
 	BoxPlotRecord []BoxPlotRecord
+	XLabels       map[float64]string // sequential index → date label for X axis
 }
 
 type BoxPlotRecord struct {
-	T    float64
+	T    float64 // sequential index, not a timestamp
 	Vmin float64
 	Vmax float64
+}
+
+type sparseTicks struct{ labels map[float64]string }
+
+func (s sparseTicks) Ticks(min, max float64) []plot.Tick {
+	var ticks []plot.Tick
+	for pos, label := range s.labels {
+		if pos >= min && pos <= max {
+			ticks = append(ticks, plot.Tick{Value: pos, Label: label})
+		}
+	}
+	return ticks
 }
 
 // Generate an empty image with given width and height
@@ -167,18 +180,22 @@ func AddChart(img *image.RGBA, r ChartRecords, chartWidth, chartHeight int, poin
 
 func AddStocksChart(img *image.RGBA, records BoxPlotRecords, chartWidth, chartHeight int, point image.Point) error {
 	p := plot.New()
-	xticks := plot.TimeTicks{Format: "2006-01-02\n15:04"}
-	p.X.Tick.Marker = xticks
+	if n := len(records.BoxPlotRecord); n > 0 {
+		p.X.Min = 0
+		p.X.Max = float64(n - 1)
+	}
+	if len(records.XLabels) > 0 {
+		p.X.Tick.Marker = sparseTicks{labels: records.XLabels}
+	}
 	p.Add(plotter.NewGrid())
 	var values []*plotter.BoxPlot
 
 	w := vg.Points(2)
 	for _, v := range records.BoxPlotRecord {
-		t := time.UnixMilli(int64(v.T))
 		box := make(plotter.Values, 2)
 		box[0] = v.Vmin
 		box[1] = v.Vmax
-		b, err := plotter.NewBoxPlot(w, float64(t.Unix()), box)
+		b, err := plotter.NewBoxPlot(w, v.T, box)
 		if err != nil {
 			return err
 		}

@@ -119,10 +119,10 @@ func getHistory(symbol, apiKey string) (render.BoxPlotRecords, error) {
 	records := render.BoxPlotRecords{XLabels: make(map[float64]string)}
 
 	now := time.Now()
-	weekAgo := now.AddDate(0, 0, -2)
+	weekAgo := now.AddDate(0, 0, -7)
 	startDate := fmt.Sprintf("%d-%02d-%02d", weekAgo.Year(), weekAgo.Month(), weekAgo.Day())
 	endDate := fmt.Sprintf("%d-%02d-%02dT%02d:%02d:%02d", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second())
-	url := fmt.Sprintf("https://api.twelvedata.com/time_series?symbol=%s&interval=15min&start_date=%s&end_date=%s&apikey=%s", symbol, startDate, endDate, apiKey)
+	url := fmt.Sprintf("https://api.twelvedata.com/time_series?symbol=%s&interval=30min&start_date=%s&end_date=%s&apikey=%s", symbol, startDate, endDate, apiKey)
 
 	body, err := httpclient.Get(url)
 	if err != nil {
@@ -134,18 +134,20 @@ func getHistory(symbol, apiKey string) (render.BoxPlotRecords, error) {
 		return records, err
 	}
 
+	n := len(hr.Values)
 	var prevDay int
-	for i, v := range hr.Values {
+	for j := 0; j < n; j++ {
+		v := hr.Values[n-1-j]
 		t, _ := time.Parse("2006-01-02 15:04:05", v.Datetime)
 		vmin, _ := strconv.ParseFloat(strings.TrimSpace(v.Low), 64)
 		vmax, _ := strconv.ParseFloat(strings.TrimSpace(v.High), 64)
 		records.BoxPlotRecord = append(records.BoxPlotRecord, render.BoxPlotRecord{
-			T:    float64(i),
+			T:    float64(j),
 			Vmin: vmin,
 			Vmax: vmax,
 		})
-		if i == 0 || t.Day() != prevDay {
-			records.XLabels[float64(i)] = t.Format("01/02 15:04")
+		if j == 0 || t.Day() != prevDay {
+			records.XLabels[float64(j)] = t.Format("01/02 15:04")
 		}
 		prevDay = t.Day()
 	}

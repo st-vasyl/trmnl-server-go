@@ -21,15 +21,19 @@ type SetupResponse struct {
 	Message    string `json:"message"`
 }
 
-func Serve(version string, c *config.Config, plugins []plugin.Plugin) {
-	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+// NewMux builds the HTTP routes. It returns an http.Handler so tests can drive
+// it via httptest without binding a port.
+func NewMux(version string, c *config.Config, plugins []plugin.Plugin) *http.ServeMux {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte(fmt.Sprintf("App version: %s", version)))
 	})
 
-	http.HandleFunc("/public/", ServeFiles)
+	mux.HandleFunc("/public/", ServeFiles)
 
-	http.HandleFunc("/api/setup", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/setup", func(w http.ResponseWriter, r *http.Request) {
 		apiKey := r.Header.Get("Access-Token")
 		deviceId := r.Header.Get("Id")
 		voltage := r.Header.Get("Battery-Voltage")
@@ -61,7 +65,7 @@ func Serve(version string, c *config.Config, plugins []plugin.Plugin) {
 		w.Write(msg)
 	})
 
-	http.HandleFunc("/api/display", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/display", func(w http.ResponseWriter, r *http.Request) {
 		apiKey := r.Header.Get("Access-Token")
 		deviceId := r.Header.Get("Id")
 		voltage := r.Header.Get("Battery-Voltage")
@@ -75,7 +79,7 @@ func Serve(version string, c *config.Config, plugins []plugin.Plugin) {
 		w.Write(msg)
 	})
 
-	http.HandleFunc("POST /api/log", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/log", func(w http.ResponseWriter, r *http.Request) {
 		apiKey := r.Header.Get("Access-Token")
 		deviceId := r.Header.Get("Id")
 		voltage := r.Header.Get("Battery-Voltage")
@@ -92,9 +96,14 @@ func Serve(version string, c *config.Config, plugins []plugin.Plugin) {
 		w.Write([]byte("OK"))
 	})
 
+	return mux
+}
+
+func Serve(version string, c *config.Config, plugins []plugin.Plugin) {
+	mux := NewMux(version, c, plugins)
 	log.Info().Str("version", version).Int("port", c.Common.Port).Msg("HTTP server started")
 
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", c.Common.Port), nil); err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", c.Common.Port), mux); err != nil {
 		log.Error().Str("version", version).Int("port", c.Common.Port).Err(err).Msg("HTTP server failed")
 	}
 }

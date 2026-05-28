@@ -31,7 +31,11 @@ func init() {
 }
 
 func main() {
-	c, _ := config.GetConfig(configFile)
+	c, err := config.GetConfig(configFile)
+	if err != nil {
+		log.Error().Str("config", configFile).Err(err).Msg("Failed to load config")
+		os.Exit(1)
+	}
 	if c.Common.Debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}

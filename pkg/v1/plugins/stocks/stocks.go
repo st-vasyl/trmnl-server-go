@@ -14,6 +14,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// baseURL is the TwelveData API root. Overridden in tests.
+var baseURL = "https://api.twelvedata.com"
+
 // StocksPlugin renders a 7-day OHLC candlestick chart for each configured symbol.
 type StocksPlugin struct {
 	Symbols []string
@@ -86,7 +89,7 @@ type historyMeta struct {
 
 func getLatestPrice(symbol, apiKey string) (stockLatestPrice, error) {
 	var s stockLatestPrice
-	url := fmt.Sprintf("https://api.twelvedata.com/price?symbol=%s&apikey=%s", symbol, apiKey)
+	url := fmt.Sprintf("%s/price?symbol=%s&apikey=%s", baseURL, symbol, apiKey)
 	body, err := httpclient.Get(url)
 	if err != nil {
 		log.Error().Str("plugin", "stocks").Str("symbol", symbol).Err(err).Msg("Failed to fetch latest price")
@@ -101,7 +104,7 @@ func getLatestPrice(symbol, apiKey string) (stockLatestPrice, error) {
 
 func getQuote(symbol, apiKey string) (stock, error) {
 	var s stock
-	url := fmt.Sprintf("https://api.twelvedata.com/quote?symbol=%s&apikey=%s", symbol, apiKey)
+	url := fmt.Sprintf("%s/quote?symbol=%s&apikey=%s", baseURL, symbol, apiKey)
 	body, err := httpclient.Get(url)
 	if err != nil {
 		log.Error().Str("plugin", "stocks").Str("symbol", symbol).Err(err).Msg("Failed to fetch quote")
@@ -122,7 +125,7 @@ func getHistory(symbol, apiKey string) (render.BoxPlotRecords, error) {
 	weekAgo := now.AddDate(0, 0, -7)
 	startDate := fmt.Sprintf("%d-%02d-%02d", weekAgo.Year(), weekAgo.Month(), weekAgo.Day())
 	endDate := fmt.Sprintf("%d-%02d-%02dT%02d:%02d:%02d", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second())
-	url := fmt.Sprintf("https://api.twelvedata.com/time_series?symbol=%s&interval=30min&start_date=%s&end_date=%s&apikey=%s", symbol, startDate, endDate, apiKey)
+	url := fmt.Sprintf("%s/time_series?symbol=%s&interval=30min&start_date=%s&end_date=%s&apikey=%s", baseURL, symbol, startDate, endDate, apiKey)
 
 	body, err := httpclient.Get(url)
 	if err != nil {

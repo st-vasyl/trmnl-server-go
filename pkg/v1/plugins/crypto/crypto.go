@@ -12,6 +12,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// baseURL is the CoinGecko API root. Overridden in tests.
+var baseURL = "https://api.coingecko.com"
+
 // CryptoPlugin renders 24h price charts for each configured coin.
 type CryptoPlugin struct {
 	Symbols []string
@@ -57,7 +60,7 @@ type price struct {
 
 func getCryptoData(symbol string) (crypto, error) {
 	var c crypto
-	url := fmt.Sprintf("https://api.coingecko.com/api/v3/coins/%s?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false", symbol)
+	url := fmt.Sprintf("%s/api/v3/coins/%s?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false", baseURL, symbol)
 	body, err := httpclient.Get(url)
 	if err != nil {
 		log.Error().Str("plugin", "crypto").Str("symbol", symbol).Err(err).Msg("Failed to fetch crypto data")
@@ -74,7 +77,7 @@ func getCryptoHistory(symbol string) (render.ChartRecords, error) {
 	var hr historyRecords
 	var records render.ChartRecords
 
-	url := fmt.Sprintf("https://api.coingecko.com/api/v3/coins/%s/market_chart?vs_currency=usd&days=1", symbol)
+	url := fmt.Sprintf("%s/api/v3/coins/%s/market_chart?vs_currency=usd&days=1", baseURL, symbol)
 	body, err := httpclient.Get(url)
 	if err != nil {
 		log.Error().Str("plugin", "crypto").Str("symbol", symbol).Err(err).Msg("Failed to fetch crypto history")

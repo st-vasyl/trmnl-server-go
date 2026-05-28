@@ -65,20 +65,17 @@ type Random struct {
 func GetConfig(filename string) (Config, error) {
 	var c Config
 
-	// Open the configuration file.
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Error().Err(err).Msg("Unable to open config file")
-		os.Exit(1)
+		return c, err
 	}
 	defer file.Close()
 
-	// Decode the YAML configuration into the config struct.
 	decoder := yaml.NewDecoder(file)
-	err = decoder.Decode(&c)
-	if err != nil {
+	if err := decoder.Decode(&c); err != nil {
 		log.Error().Err(err).Msg("Error decoding file")
-		os.Exit(1)
+		return c, err
 	}
 
 	return c, nil

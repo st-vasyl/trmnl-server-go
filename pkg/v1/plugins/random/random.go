@@ -11,6 +11,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// baseURL is the Unsplash API root. Overridden in tests.
+var baseURL = "https://api.unsplash.com"
+
 // RandomPlugin fetches a random landscape nature photo from Unsplash.
 type RandomPlugin struct {
 	ApiKey string
@@ -34,7 +37,7 @@ type urls struct {
 }
 
 func getImageURL(apiKey string) (string, error) {
-	url := fmt.Sprintf("https://api.unsplash.com/photos/random?client_id=%s&orientation=landscape&topics=nature&query=black%%26white", apiKey)
+	url := fmt.Sprintf("%s/photos/random?client_id=%s&orientation=landscape&topics=nature&query=black%%26white", baseURL, apiKey)
 	body, err := httpclient.Get(url)
 	if err != nil {
 		return "", err

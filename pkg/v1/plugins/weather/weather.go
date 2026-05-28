@@ -11,6 +11,12 @@ import (
 	"trmnl-server-go/pkg/v1/render"
 )
 
+// API roots. Overridden in tests.
+var (
+	geocodingBaseURL = "https://geocoding-api.open-meteo.com"
+	forecastBaseURL  = "https://api.open-meteo.com"
+)
+
 // WeatherPlugin renders the current weather and hourly forecast for a configured city.
 type WeatherPlugin struct {
 	Location string
@@ -80,7 +86,7 @@ type weatherData struct {
 
 func getLocation(city string) (locationResponse, error) {
 	var l locationResponse
-	url := fmt.Sprintf("https://geocoding-api.open-meteo.com/v1/search?name=%s&count=1&language=en&format=json", city)
+	url := fmt.Sprintf("%s/v1/search?name=%s&count=1&language=en&format=json", geocodingBaseURL, city)
 	body, err := httpclient.Get(url)
 	if err != nil {
 		return l, err
@@ -94,11 +100,11 @@ func getLocation(city string) (locationResponse, error) {
 func getWeather(l locationResponse) (weatherResponse, error) {
 	var w weatherResponse
 	url := fmt.Sprintf(
-		"https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f"+
+		"%s/v1/forecast?latitude=%f&longitude=%f"+
 			"&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,surface_pressure,weather_code"+
 			"&hourly=temperature_2m&daily=temperature_2m_max,temperature_2m_min,sunset,sunrise"+
 			"&wind_speed_unit=ms&timezone=auto",
-		l.Results[0].Latitude, l.Results[0].Longitude,
+		forecastBaseURL, l.Results[0].Latitude, l.Results[0].Longitude,
 	)
 	body, err := httpclient.Get(url)
 	if err != nil {

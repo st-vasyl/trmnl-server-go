@@ -5,26 +5,23 @@ import (
 	"testing"
 )
 
-// freshDB returns the path to a freshly-initialized SQLite DB in a temp dir.
-func freshDB(t *testing.T) string {
+// freshStore returns a freshly-opened Store backed by a temp SQLite file.
+func freshStore(t *testing.T) *Store {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "trmnl.db")
-	if err := InitDB(path); err != nil {
-		t.Fatalf("InitDB: %v", err)
+	s, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
 	}
-	return path
+	t.Cleanup(func() { _ = s.Close() })
+	return s
 }
 
-func TestInitDB_CreatesTable(t *testing.T) {
-	path := freshDB(t)
+func TestOpen_CreatesSchema(t *testing.T) {
+	s := freshStore(t)
 
-	// Calling again on the same DB must be a no-op (CREATE TABLE IF NOT EXISTS).
-	if err := InitDB(path); err != nil {
-		t.Fatalf("second InitDB: %v", err)
-	}
-
-	// List of devices on an empty table should succeed.
-	keys, err := GetDeviceList(path)
+	// List on a freshly-opened (empty) DB must succeed.
+	keys, err := s.GetDeviceList()
 	if err != nil {
 		t.Fatalf("GetDeviceList on empty DB: %v", err)
 	}
@@ -33,21 +30,37 @@ func TestInitDB_CreatesTable(t *testing.T) {
 	}
 }
 
-func TestInitDB_InvalidPathReturnsError(t *testing.T) {
-	// A path that points into a missing directory should fail to open.
-	if err := InitDB("/this/path/does/not/exist/db.sqlite"); err == nil {
+func TestOpen_IsIdempotent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "trmnl.db")
+
+	s1, err := Open(path)
+	if err != nil {
+		t.Fatalf("first Open: %v", err)
+	}
+	_ = s1.Close()
+
+	// Second Open against the same file must not fail (CREATE TABLE IF NOT EXISTS).
+	s2, err := Open(path)
+	if err != nil {
+		t.Fatalf("second Open: %v", err)
+	}
+	_ = s2.Close()
+}
+
+func TestOpen_InvalidPathReturnsError(t *testing.T) {
+	if _, err := Open("/this/path/does/not/exist/db.sqlite"); err == nil {
 		t.Fatal("expected error for unreachable DB path, got nil")
 	}
 }
 
 func TestRegisterDevice_RoundTrip(t *testing.T) {
-	path := freshDB(t)
+	s := freshStore(t)
 
-	if err := RegisterDevice(path, "dev-1", "key-1", "weather"); err != nil {
+	if err := s.RegisterDevice("dev-1", "key-1", "weather"); err != nil {
 		t.Fatalf("RegisterDevice: %v", err)
 	}
 
-	screen, err := GetDeviceScreen(path, "dev-1")
+	screen, err := s.GetDeviceScreen("dev-1")
 	if err != nil {
 		t.Fatalf("GetDeviceScreen: %v", err)
 	}
@@ -55,7 +68,7 @@ func TestRegisterDevice_RoundTrip(t *testing.T) {
 		t.Errorf("screen = %q, want %q", screen, "weather")
 	}
 
-	keys, err := GetDeviceList(path)
+	keys, err := s.GetDeviceList()
 	if err != nil {
 		t.Fatalf("GetDeviceList: %v", err)
 	}
@@ -65,12 +78,12 @@ func TestRegisterDevice_RoundTrip(t *testing.T) {
 }
 
 func TestRegisterDevice_GeneratesApiKeyWhenEmpty(t *testing.T) {
-	path := freshDB(t)
+	s := freshStore(t)
 
-	if err := RegisterDevice(path, "dev-1", "", "weather"); err != nil {
+	if err := s.RegisterDevice("dev-1", "", "weather"); err != nil {
 		t.Fatalf("RegisterDevice: %v", err)
 	}
-	keys, err := GetDeviceList(path)
+	keys, err := s.GetDeviceList()
 	if err != nil {
 		t.Fatalf("GetDeviceList: %v", err)
 	}
@@ -83,24 +96,24 @@ func TestRegisterDevice_GeneratesApiKeyWhenEmpty(t *testing.T) {
 }
 
 func TestGetDeviceScreen_UnknownDeviceReturnsError(t *testing.T) {
-	path := freshDB(t)
+	s := freshStore(t)
 
-	if _, err := GetDeviceScreen(path, "missing"); err == nil {
+	if _, err := s.GetDeviceScreen("missing"); err == nil {
 		t.Fatal("expected error for unknown device, got nil")
 	}
 }
 
 func TestUpdateDevice_PersistsVoltageAndScreen(t *testing.T) {
-	path := freshDB(t)
-	if err := RegisterDevice(path, "dev-1", "key-1", "weather"); err != nil {
+	s := freshStore(t)
+	if err := s.RegisterDevice("dev-1", "key-1", "weather"); err != nil {
 		t.Fatalf("RegisterDevice: %v", err)
 	}
 
-	if err := UpdateDevice(path, "dev-1", "4.1", "coingecko_bitcoin"); err != nil {
+	if err := s.UpdateDevice("dev-1", "4.1", "coingecko_bitcoin"); err != nil {
 		t.Fatalf("UpdateDevice: %v", err)
 	}
 
-	screen, err := GetDeviceScreen(path, "dev-1")
+	screen, err := s.GetDeviceScreen("dev-1")
 	if err != nil {
 		t.Fatalf("GetDeviceScreen: %v", err)
 	}
@@ -108,30 +121,30 @@ func TestUpdateDevice_PersistsVoltageAndScreen(t *testing.T) {
 		t.Errorf("screen = %q, want %q", screen, "coingecko_bitcoin")
 	}
 
-	voltage, err := GetDeviceVoltage(path, "key-1")
+	voltage, err := s.GetDeviceVoltage("key-1")
 	if err != nil {
 		t.Fatalf("GetDeviceVoltage: %v", err)
 	}
-	if got := float32(4.1); !approx(voltage, got, 0.001) {
-		t.Errorf("voltage = %v, want ~%v", voltage, got)
+	if want := float32(4.1); !approx(voltage, want, 0.001) {
+		t.Errorf("voltage = %v, want ~%v", voltage, want)
 	}
 }
 
 func TestGetDeviceVoltage_UnknownKeyReturnsError(t *testing.T) {
-	path := freshDB(t)
-	if _, err := GetDeviceVoltage(path, "missing"); err == nil {
+	s := freshStore(t)
+	if _, err := s.GetDeviceVoltage("missing"); err == nil {
 		t.Fatal("expected error for unknown api key, got nil")
 	}
 }
 
 func TestGetDeviceList_MultipleDevices(t *testing.T) {
-	path := freshDB(t)
+	s := freshStore(t)
 	for _, k := range []string{"a", "b", "c"} {
-		if err := RegisterDevice(path, "dev-"+k, "key-"+k, "weather"); err != nil {
+		if err := s.RegisterDevice("dev-"+k, "key-"+k, "weather"); err != nil {
 			t.Fatalf("RegisterDevice %s: %v", k, err)
 		}
 	}
-	keys, err := GetDeviceList(path)
+	keys, err := s.GetDeviceList()
 	if err != nil {
 		t.Fatalf("GetDeviceList: %v", err)
 	}
@@ -147,6 +160,20 @@ func TestGetDeviceList_MultipleDevices(t *testing.T) {
 			t.Errorf("missing key %q in %v", want, keys)
 		}
 	}
+}
+
+func TestClose_AllowsRepeatedSafely(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "trmnl.db")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("first Close: %v", err)
+	}
+	// Second Close on *sql.DB is documented as a no-op error or nil; either
+	// is acceptable, but we should not panic.
+	_ = s.Close()
 }
 
 func approx(a, b, eps float32) bool {

@@ -42,10 +42,12 @@ func main() {
 
 	log.Info().Str("config", configFile).Str("db", c.Common.Dbpath).Msg("Services starting")
 
-	if err := db.InitDB(c.Common.Dbpath); err != nil {
-		log.Error().Str("dbpath", c.Common.Dbpath).Err(err).Msg("Failed to init DB")
+	store, err := db.Open(c.Common.Dbpath)
+	if err != nil {
+		log.Error().Str("dbpath", c.Common.Dbpath).Err(err).Msg("Failed to open DB")
 		os.Exit(1)
 	}
+	defer store.Close()
 
 	fontName := c.Common.FontName
 	if fontName == "" {
@@ -67,11 +69,11 @@ func main() {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		handler.Serve("0.0.1", &c, plugins)
+		handler.Serve("0.0.1", &c, plugins, store)
 	}()
 	go func() {
 		defer wg.Done()
-		worker.UpdateData(&c, plugins)
+		worker.UpdateData(&c, plugins, store)
 	}()
 	wg.Wait()
 

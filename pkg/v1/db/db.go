@@ -4,158 +4,118 @@ import (
 	"database/sql"
 
 	"github.com/rs/zerolog/log"
-
 	"github.com/thanhpk/randstr"
 	_ "modernc.org/sqlite"
 )
 
-func InitDB(dbname string) error {
-	db, err := sql.Open("sqlite", dbname)
+// Store owns the single *sql.DB handle for the devices table. Open it once at
+// startup and pass it to consumers (handler, worker, screens) so they share the
+// underlying connection pool.
+type Store struct {
+	db *sql.DB
+}
+
+// Open creates (or attaches to) the SQLite file at dbname and ensures the
+// devices schema exists.
+func Open(dbname string) (*Store, error) {
+	d, err := sql.Open("sqlite", dbname)
 	if err != nil {
-		log.Error().Str("func", "InitDB").Str("dbname", dbname).Err(err).Msg("DB: Unable to open database file")
-		return err
+		log.Error().Str("func", "Open").Str("dbname", dbname).Err(err).Msg("DB: unable to open database file")
+		return nil, err
 	}
-	defer db.Close()
-	sqlStmt := `
+	s := &Store{db: d}
+	if err := s.migrate(); err != nil {
+		d.Close()
+		return nil, err
+	}
+	log.Info().Str("func", "Open").Msg("DB: devices schema ready")
+	return s, nil
+}
+
+// Close releases the underlying *sql.DB.
+func (s *Store) Close() error { return s.db.Close() }
+
+func (s *Store) migrate() error {
+	const stmt = `
     CREATE TABLE IF NOT EXISTS devices (
         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-				device_id TEXT,
-				api_key TEXT,
-				screen TEXT,
-				voltage NUM
-    );
-    `
-	_, err = db.Exec(sqlStmt)
-	if err != nil {
-		log.Error().Str("func", "InitDB").Str("dbname", dbname).Err(err).Msg("DB: Unable to exec SQL statement")
+        device_id TEXT,
+        api_key TEXT,
+        screen TEXT,
+        voltage NUM
+    );`
+	if _, err := s.db.Exec(stmt); err != nil {
+		log.Error().Str("func", "migrate").Err(err).Msg("DB: unable to create devices table")
 		return err
 	}
-	log.Info().Str("func", "InitDB").Msg("DB: Table devices created successfully")
 	return nil
 }
 
-func RegisterDevice(dbname, deviceId, apiKey, screen string) error {
+// RegisterDevice inserts a new device row. When apiKey is empty a 16-char
+// random key is generated and stored; the caller does not learn the generated
+// value (matching the legacy contract).
+func (s *Store) RegisterDevice(deviceId, apiKey, screen string) error {
 	if apiKey == "" {
 		apiKey = randstr.String(16)
 	}
-	db, err := sql.Open("sqlite", dbname)
-	if err != nil {
-		log.Error().Str("func", "RegisterDevice").Str("dbname", dbname).Err(err).Msg("DB: Unable to open database file")
+	if _, err := s.db.Exec("INSERT INTO devices(device_id, api_key, screen, voltage) VALUES(?,?,?,0)", deviceId, apiKey, screen); err != nil {
+		log.Error().Str("func", "RegisterDevice").Err(err).Msg("DB: insert failed")
 		return err
 	}
-	defer db.Close()
-
-	_, err = db.Exec("INSERT INTO devices(device_id, api_key, screen, voltage) VALUES(?,?,?,0)", deviceId, apiKey, screen)
-	if err != nil {
-		log.Error().Str("func", "RegisterDevice").Str("dbname", dbname).Err(err).Msg("DB: Unable to exec SQL statement")
-		return err
-	}
-	log.Info().Str("func", "RegisterDevice").Str("device", deviceId).Str("api-key", apiKey).
-		Msg("DB: New device registered successfully")
+	log.Info().Str("func", "RegisterDevice").Str("device", deviceId).Str("api-key", apiKey).Msg("DB: new device registered")
 	return nil
 }
 
-func UpdateDevice(dbname, deviceId, voltage, screen string) error {
-	db, err := sql.Open("sqlite", dbname)
-	if err != nil {
-		log.Error().Str("func", "UpdateDevice").Str("dbname", dbname).Err(err).Msg("DB: Unable to open database file")
+func (s *Store) UpdateDevice(deviceId, voltage, screen string) error {
+	if _, err := s.db.Exec("UPDATE devices SET screen = ?, voltage = ? WHERE device_id = ?", screen, voltage, deviceId); err != nil {
+		log.Error().Str("func", "UpdateDevice").Err(err).Msg("DB: update failed")
 		return err
 	}
-	defer db.Close()
-
-	_, err = db.Exec("UPDATE devices SET screen = ?, voltage = ? WHERE device_id = ?", screen, voltage, deviceId)
-	if err != nil {
-		log.Error().Str("func", "UpdateDevice").Str("dbname", dbname).Err(err).Msg("DB: Unable to exec SQL statement")
-		return err
-	}
-	log.Info().Str("func", "UpdateDevice").Str("device", deviceId).Str("voltage", voltage).Str("screen", screen).
-		Msg("DB: device updated successfully")
+	log.Info().Str("func", "UpdateDevice").Str("device", deviceId).Str("voltage", voltage).Str("screen", screen).Msg("DB: device updated")
 	return nil
 }
 
-func GetDeviceScreen(dbname, deviceId string) (string, error) {
+func (s *Store) GetDeviceScreen(deviceId string) (string, error) {
 	var screen string
-	db, err := sql.Open("sqlite", dbname)
-	if err != nil {
-		log.Error().Str("func", "GetDeviceScreen").Str("dbname", dbname).Err(err).Msg("DB: Unable to open database file")
+	if err := s.db.QueryRow("SELECT screen FROM devices WHERE device_id = ?", deviceId).Scan(&screen); err != nil {
+		log.Error().Str("func", "GetDeviceScreen").Str("device", deviceId).Err(err).Msg("DB: no screen for device")
 		return "", err
 	}
-	defer db.Close()
-
-	stmt, err := db.Prepare("SELECT screen FROM devices WHERE device_id = ?")
-	if err != nil {
-		log.Error().Str("func", "GetDeviceScreen").Str("dbname", dbname).Err(err).Msg("DB: Unable to exec SQL statement")
-		return "", err
-	}
-	defer stmt.Close()
-
-	err = stmt.QueryRow(deviceId).Scan(&screen)
-	if err != nil {
-		log.Error().Str("func", "GetDeviceScreen").Str("dbname", dbname).Str("device", deviceId).Err(err).Msg("DB: Unable to find a screen for the device")
-
-		return "", err
-	}
-	log.Info().Str("func", "GetDeviceScreen").Str("device", deviceId).Str("screen", screen).Msg("DB: Found screen for the device")
-
+	log.Info().Str("func", "GetDeviceScreen").Str("device", deviceId).Str("screen", screen).Msg("DB: found screen for device")
 	return screen, nil
 }
 
-func GetDeviceVoltage(dbname, apiKey string) (float32, error) {
+func (s *Store) GetDeviceVoltage(apiKey string) (float32, error) {
 	var voltage float32
-	db, err := sql.Open("sqlite", dbname)
-	if err != nil {
-		log.Error().Str("func", "GetDeviceVoltage").Str("dbname", dbname).Err(err).Msg("DB: Unable to open database file")
+	if err := s.db.QueryRow("SELECT voltage FROM devices WHERE api_key = ?", apiKey).Scan(&voltage); err != nil {
+		log.Error().Str("func", "GetDeviceVoltage").Str("api-key", apiKey).Err(err).Msg("DB: no voltage for device")
 		return 0, err
 	}
-	defer db.Close()
-
-	stmt, err := db.Prepare("SELECT voltage FROM devices WHERE api_key = ?")
-	if err != nil {
-		log.Error().Str("func", "GetDeviceVoltage").Str("dbname", dbname).Err(err).Msg("DB: Unable to exec SQL statement")
-		return 0, err
-	}
-	defer stmt.Close()
-
-	err = stmt.QueryRow(apiKey).Scan(&voltage)
-	if err != nil {
-		log.Error().Str("func", "GetDeviceVoltage").Str("dbname", dbname).Str("api-key", apiKey).Float32("voltage", voltage).Err(err).
-			Msg("DB: Unable to find a voltage for the device")
-		return 0, err
-	}
-	log.Info().Str("func", "GetDeviceVoltage").Str("dbname", dbname).Str("api-key", apiKey).Float32("voltage", voltage).
-		Msg("DB: Found voltagee for the device")
-
+	log.Info().Str("func", "GetDeviceVoltage").Str("api-key", apiKey).Float32("voltage", voltage).Msg("DB: found voltage for device")
 	return voltage, nil
 }
 
-func GetDeviceList(dbname string) ([]string, error) {
+func (s *Store) GetDeviceList() ([]string, error) {
+	rows, err := s.db.Query("SELECT api_key FROM devices")
+	if err != nil {
+		log.Error().Str("func", "GetDeviceList").Err(err).Msg("DB: query failed")
+		return nil, err
+	}
+	defer rows.Close()
+
 	var keys []string
-	db, err := sql.Open("sqlite", dbname)
-	if err != nil {
-		log.Error().Str("func", "GetDeviceList").Str("dbname", dbname).Err(err).Msg("DB: Unable to open database file")
-		return nil, err
-	}
-	defer db.Close()
-
-	stmt, err := db.Prepare("SELECT api_key FROM devices")
-	if err != nil {
-		log.Error().Str("func", "GetDeviceList").Str("dbname", dbname).Err(err).Msg("DB: Unable to exec SQL statement")
-		return nil, err
-	}
-	defer stmt.Close()
-
-	rows, err := stmt.Query()
-
 	for rows.Next() {
-		key := ""
-		err := rows.Scan(&key)
-		if err != nil {
-			log.Error().Str("func", "GetDeviceList").Str("dbname", dbname).Err(err).Msg("DB: Unable to Scan rows in SQL responce")
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			log.Error().Str("func", "GetDeviceList").Err(err).Msg("DB: scan row failed")
+			continue
 		}
 		keys = append(keys, key)
 	}
-
-	log.Info().Str("func", "GetDeviceList").Str("dbname", dbname).Strs("api-keys", keys).Msg("DB: Found device api-keys")
-
+	if err := rows.Err(); err != nil {
+		log.Error().Str("func", "GetDeviceList").Err(err).Msg("DB: row iteration error")
+		return nil, err
+	}
+	log.Info().Str("func", "GetDeviceList").Strs("api-keys", keys).Msg("DB: found device api-keys")
 	return keys, nil
 }

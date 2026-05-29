@@ -13,10 +13,10 @@ import (
 // Tick runs one refresh pass: for every device in the DB, every plugin's
 // Render is called for every screen the plugin declares. It is the inner body
 // of UpdateData and is exposed so tests can exercise a single iteration.
-func Tick(c *config.Config, plugins []plugin.Plugin) {
-	keys, _ := db.GetDeviceList(c.Common.Dbpath)
+func Tick(c *config.Config, plugins []plugin.Plugin, store *db.Store) {
+	keys, _ := store.GetDeviceList()
 	for _, key := range keys {
-		voltage, _ := db.GetDeviceVoltage(c.Common.Dbpath, key)
+		voltage, _ := store.GetDeviceVoltage(key)
 		for _, p := range plugins {
 			for _, screen := range p.Screens() {
 				path := fmt.Sprintf("public/%s_%s.png", key, screen)
@@ -30,9 +30,9 @@ func Tick(c *config.Config, plugins []plugin.Plugin) {
 	}
 }
 
-func UpdateData(c *config.Config, plugins []plugin.Plugin) {
+func UpdateData(c *config.Config, plugins []plugin.Plugin, store *db.Store) {
 	for {
-		Tick(c, plugins)
+		Tick(c, plugins, store)
 		time.Sleep(time.Duration(c.Common.UpdateTime) * time.Second)
 	}
 }

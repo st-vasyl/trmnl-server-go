@@ -21,12 +21,12 @@ type DisplayResponse struct {
 	ResetFirmware  bool   `json:"reset_firmware"`
 }
 
-func RenderDisplay(c *config.Config, plugins []plugin.Plugin, deviceId, apiKey, voltage string) []byte {
-	screen, err := db.GetDeviceScreen(c.Common.Dbpath, deviceId)
+func RenderDisplay(c *config.Config, plugins []plugin.Plugin, store *db.Store, deviceId, apiKey, voltage string) []byte {
+	screen, err := store.GetDeviceScreen(deviceId)
 	if err != nil {
 		log.Debug().Err(err).Str("deviceId", deviceId).Msg("Device not found in DB, registering.")
 		screen = firstScreen(plugins)
-		db.RegisterDevice(c.Common.Dbpath, deviceId, apiKey, screen)
+		store.RegisterDevice(deviceId, apiKey, screen)
 	}
 
 	filename := fmt.Sprintf("public/%s_%s.png", apiKey, screen)
@@ -49,7 +49,7 @@ func RenderDisplay(c *config.Config, plugins []plugin.Plugin, deviceId, apiKey, 
 	log.Debug().Strs("screens", screenList).Msg("Screen list")
 
 	nextScreen := getNextScreen(screen, screenList)
-	db.UpdateDevice(c.Common.Dbpath, deviceId, voltage, nextScreen)
+	store.UpdateDevice(deviceId, voltage, nextScreen)
 
 	return res
 }

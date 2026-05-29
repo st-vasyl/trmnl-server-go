@@ -82,14 +82,21 @@ func TestFirstScreen(t *testing.T) {
 	}
 }
 
-func TestRenderDisplay_NewDeviceGetsRegisteredAndAdvances(t *testing.T) {
-	dbpath := filepath.Join(t.TempDir(), "trmnl.db")
-	if err := db.InitDB(dbpath); err != nil {
-		t.Fatalf("InitDB: %v", err)
+func openTestStore(t *testing.T) *db.Store {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "trmnl.db")
+	s, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("db.Open: %v", err)
 	}
+	t.Cleanup(func() { _ = s.Close() })
+	return s
+}
+
+func TestRenderDisplay_NewDeviceGetsRegisteredAndAdvances(t *testing.T) {
+	store := openTestStore(t)
 
 	c := &config.Config{}
-	c.Common.Dbpath = dbpath
 	c.Common.ExternalURL = "host:8080"
 	c.Common.RefreshTime = 300
 
@@ -97,7 +104,7 @@ func TestRenderDisplay_NewDeviceGetsRegisteredAndAdvances(t *testing.T) {
 		&fakePlugin{name: "p", screens: []string{"weather", "crypto"}},
 	}
 
-	out := RenderDisplay(c, plugins, "dev-1", "key-1", "4.0")
+	out := RenderDisplay(c, plugins, store, "dev-1", "key-1", "4.0")
 
 	var resp DisplayResponse
 	if err := json.Unmarshal(out, &resp); err != nil {
@@ -112,7 +119,7 @@ func TestRenderDisplay_NewDeviceGetsRegisteredAndAdvances(t *testing.T) {
 
 	// Device should be registered with current screen = "weather", and the
 	// rotation advanced to "crypto" for next call.
-	gotScreen, err := db.GetDeviceScreen(dbpath, "dev-1")
+	gotScreen, err := store.GetDeviceScreen("dev-1")
 	if err != nil {
 		t.Fatalf("GetDeviceScreen: %v", err)
 	}
@@ -122,16 +129,12 @@ func TestRenderDisplay_NewDeviceGetsRegisteredAndAdvances(t *testing.T) {
 }
 
 func TestRenderDisplay_AdvancesExistingDevice(t *testing.T) {
-	dbpath := filepath.Join(t.TempDir(), "trmnl.db")
-	if err := db.InitDB(dbpath); err != nil {
-		t.Fatalf("InitDB: %v", err)
-	}
-	if err := db.RegisterDevice(dbpath, "dev-1", "key-1", "crypto"); err != nil {
+	store := openTestStore(t)
+	if err := store.RegisterDevice("dev-1", "key-1", "crypto"); err != nil {
 		t.Fatalf("RegisterDevice: %v", err)
 	}
 
 	c := &config.Config{}
-	c.Common.Dbpath = dbpath
 	c.Common.ExternalURL = "host:8080"
 	c.Common.RefreshTime = 300
 
@@ -139,7 +142,7 @@ func TestRenderDisplay_AdvancesExistingDevice(t *testing.T) {
 		&fakePlugin{name: "p", screens: []string{"weather", "crypto"}},
 	}
 
-	out := RenderDisplay(c, plugins, "dev-1", "key-1", "4.0")
+	out := RenderDisplay(c, plugins, store, "dev-1", "key-1", "4.0")
 
 	var resp DisplayResponse
 	if err := json.Unmarshal(out, &resp); err != nil {
@@ -150,7 +153,7 @@ func TestRenderDisplay_AdvancesExistingDevice(t *testing.T) {
 		t.Errorf("ImageURL = %q, want crypto image", resp.ImageURL)
 	}
 
-	gotScreen, err := db.GetDeviceScreen(dbpath, "dev-1")
+	gotScreen, err := store.GetDeviceScreen("dev-1")
 	if err != nil {
 		t.Fatalf("GetDeviceScreen: %v", err)
 	}

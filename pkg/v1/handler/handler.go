@@ -23,7 +23,7 @@ type SetupResponse struct {
 
 // NewMux builds the HTTP routes. It returns an http.Handler so tests can drive
 // it via httptest without binding a port.
-func NewMux(version string, c *config.Config, plugins []plugin.Plugin) *http.ServeMux {
+func NewMux(version string, c *config.Config, plugins []plugin.Plugin, store *db.Store) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +43,7 @@ func NewMux(version string, c *config.Config, plugins []plugin.Plugin) *http.Ser
 		if len(firstScreen) > 0 {
 			defaultScreen = firstScreen[0]
 		}
-		db.RegisterDevice(c.Common.Dbpath, deviceId, apiKey, defaultScreen)
+		store.RegisterDevice(deviceId, apiKey, defaultScreen)
 
 		log.Info().Str("func", "setup").Str("api-key", apiKey).Str("id", deviceId).Str("voltage", voltage).Msg("Device setup requested")
 
@@ -72,7 +72,7 @@ func NewMux(version string, c *config.Config, plugins []plugin.Plugin) *http.Ser
 
 		log.Info().Str("func", "display").Str("api-key", apiKey).Str("id", deviceId).Str("voltage", voltage).Msg("Display requested")
 
-		msg := screens.RenderDisplay(c, plugins, deviceId, apiKey, voltage)
+		msg := screens.RenderDisplay(c, plugins, store, deviceId, apiKey, voltage)
 		log.Debug().Str("func", "display").Str("api-key", apiKey).Str("id", deviceId).Str("response", string(msg)).Msg("Display response sent")
 
 		w.WriteHeader(200)
@@ -99,8 +99,8 @@ func NewMux(version string, c *config.Config, plugins []plugin.Plugin) *http.Ser
 	return mux
 }
 
-func Serve(version string, c *config.Config, plugins []plugin.Plugin) {
-	mux := NewMux(version, c, plugins)
+func Serve(version string, c *config.Config, plugins []plugin.Plugin, store *db.Store) {
+	mux := NewMux(version, c, plugins, store)
 	log.Info().Str("version", version).Int("port", c.Common.Port).Msg("HTTP server started")
 
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", c.Common.Port), mux); err != nil {

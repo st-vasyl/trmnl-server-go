@@ -22,14 +22,16 @@ func (f *fakePlugin) Name() string                                     { return 
 func (f *fakePlugin) Screens() []string                                { return f.screens }
 func (f *fakePlugin) Render(screen, path string, voltage float32) error { return nil }
 
-func setup(t *testing.T) (*http.ServeMux, *config.Config) {
+func setup(t *testing.T) (*http.ServeMux, *db.Store) {
 	t.Helper()
 	dbpath := filepath.Join(t.TempDir(), "trmnl.db")
-	if err := db.InitDB(dbpath); err != nil {
-		t.Fatalf("InitDB: %v", err)
+	store, err := db.Open(dbpath)
+	if err != nil {
+		t.Fatalf("db.Open: %v", err)
 	}
+	t.Cleanup(func() { _ = store.Close() })
+
 	c := &config.Config{}
-	c.Common.Dbpath = dbpath
 	c.Common.Port = 8080
 	c.Common.ExternalURL = "host:8080"
 	c.Common.RefreshTime = 300
@@ -37,7 +39,7 @@ func setup(t *testing.T) (*http.ServeMux, *config.Config) {
 	plugins := []plugin.Plugin{
 		&fakePlugin{name: "p", screens: []string{"weather", "crypto"}},
 	}
-	return NewMux("test-version", c, plugins), c
+	return NewMux("test-version", c, plugins, store), store
 }
 
 func TestHealthz(t *testing.T) {
@@ -57,7 +59,7 @@ func TestHealthz(t *testing.T) {
 }
 
 func TestSetup_RegistersDeviceAndReturnsSetupResponse(t *testing.T) {
-	mux, c := setup(t)
+	mux, store := setup(t)
 	req := httptest.NewRequest(http.MethodGet, "/api/setup", nil)
 	req.Header.Set("Access-Token", "key-1")
 	req.Header.Set("Id", "dev-1")
@@ -81,7 +83,7 @@ func TestSetup_RegistersDeviceAndReturnsSetupResponse(t *testing.T) {
 	}
 
 	// Device should be registered with the first screen ("weather").
-	screen, err := db.GetDeviceScreen(c.Common.Dbpath, "dev-1")
+	screen, err := store.GetDeviceScreen("dev-1")
 	if err != nil {
 		t.Fatalf("GetDeviceScreen: %v", err)
 	}
@@ -91,7 +93,7 @@ func TestSetup_RegistersDeviceAndReturnsSetupResponse(t *testing.T) {
 }
 
 func TestDisplay_RegistersNewDeviceAndAdvances(t *testing.T) {
-	mux, c := setup(t)
+	mux, store := setup(t)
 	req := httptest.NewRequest(http.MethodGet, "/api/display", nil)
 	req.Header.Set("Access-Token", "key-1")
 	req.Header.Set("Id", "dev-1")
@@ -105,7 +107,7 @@ func TestDisplay_RegistersNewDeviceAndAdvances(t *testing.T) {
 	}
 
 	// New device: registered with first screen, advanced to second.
-	screen, err := db.GetDeviceScreen(c.Common.Dbpath, "dev-1")
+	screen, err := store.GetDeviceScreen("dev-1")
 	if err != nil {
 		t.Fatalf("GetDeviceScreen: %v", err)
 	}

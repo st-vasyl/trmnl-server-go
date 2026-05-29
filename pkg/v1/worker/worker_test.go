@@ -28,22 +28,22 @@ func (p *recordingPlugin) Render(screen, path string, voltage float32) error {
 	return nil
 }
 
-func setupConfig(t *testing.T) *config.Config {
+func setupConfig(t *testing.T) (*config.Config, *db.Store) {
 	t.Helper()
 	dbpath := filepath.Join(t.TempDir(), "trmnl.db")
-	if err := db.InitDB(dbpath); err != nil {
-		t.Fatalf("InitDB: %v", err)
+	store, err := db.Open(dbpath)
+	if err != nil {
+		t.Fatalf("db.Open: %v", err)
 	}
-	c := &config.Config{}
-	c.Common.Dbpath = dbpath
-	return c
+	t.Cleanup(func() { _ = store.Close() })
+	return &config.Config{}, store
 }
 
 func TestTick_NoDevicesIsNoOp(t *testing.T) {
-	c := setupConfig(t)
+	c, store := setupConfig(t)
 	p := &recordingPlugin{name: "p", screens: []string{"a", "b"}}
 
-	Tick(c, []plugin.Plugin{p})
+	Tick(c, []plugin.Plugin{p}, store)
 
 	if got := len(p.calls); got != 0 {
 		t.Errorf("calls = %d, want 0 when there are no devices", got)
@@ -51,18 +51,18 @@ func TestTick_NoDevicesIsNoOp(t *testing.T) {
 }
 
 func TestTick_RendersAllScreensForEachDevice(t *testing.T) {
-	c := setupConfig(t)
-	if err := db.RegisterDevice(c.Common.Dbpath, "dev-1", "key-1", "a"); err != nil {
+	c, store := setupConfig(t)
+	if err := store.RegisterDevice("dev-1", "key-1", "a"); err != nil {
 		t.Fatalf("RegisterDevice 1: %v", err)
 	}
-	if err := db.RegisterDevice(c.Common.Dbpath, "dev-2", "key-2", "a"); err != nil {
+	if err := store.RegisterDevice("dev-2", "key-2", "a"); err != nil {
 		t.Fatalf("RegisterDevice 2: %v", err)
 	}
 
 	p1 := &recordingPlugin{name: "p1", screens: []string{"a", "b"}}
 	p2 := &recordingPlugin{name: "p2", screens: []string{"c"}}
 
-	Tick(c, []plugin.Plugin{p1, p2})
+	Tick(c, []plugin.Plugin{p1, p2}, store)
 
 	// p1 has 2 screens × 2 devices = 4 calls. p2 has 1 screen × 2 devices = 2 calls.
 	if got := len(p1.calls); got != 4 {

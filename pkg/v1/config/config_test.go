@@ -27,8 +27,6 @@ plugins:
     symbols: ["bitcoin"]
   weather:
     location: "Wroclaw"
-  random:
-    api_key: "u-key"
 `
 
 func writeTempFile(t *testing.T, name, contents string) string {
@@ -81,9 +79,6 @@ func TestGetConfig_ParsesValidYAML(t *testing.T) {
 	}
 	if c.Plugins.Weather.Location != "Wroclaw" {
 		t.Errorf("Weather.Location = %q, want %q", c.Plugins.Weather.Location, "Wroclaw")
-	}
-	if c.Plugins.Random.APIKey != "u-key" {
-		t.Errorf("Random.APIKey = %q, want %q", c.Plugins.Random.APIKey, "u-key")
 	}
 }
 

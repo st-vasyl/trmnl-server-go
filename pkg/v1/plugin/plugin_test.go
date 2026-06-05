@@ -8,7 +8,6 @@ import (
 	"testing"
 	"trmnl-server-go/pkg/v1/plugin"
 	"trmnl-server-go/pkg/v1/plugins/crypto"
-	"trmnl-server-go/pkg/v1/plugins/random"
 	"trmnl-server-go/pkg/v1/plugins/stocks"
 	"trmnl-server-go/pkg/v1/plugins/weather"
 )
@@ -19,7 +18,6 @@ var (
 	_ plugin.Plugin = (*weather.WeatherPlugin)(nil)
 	_ plugin.Plugin = (*stocks.StocksPlugin)(nil)
 	_ plugin.Plugin = (*crypto.CryptoPlugin)(nil)
-	_ plugin.Plugin = (*random.RandomPlugin)(nil)
 )
 
 // stubPlugin is a minimal Plugin used to verify the contract is callable from
@@ -58,13 +56,11 @@ func TestPlugin_ConcretePluginsExposeNonEmptyName(t *testing.T) {
 		&weather.WeatherPlugin{},
 		&stocks.StocksPlugin{},
 		&crypto.CryptoPlugin{},
-		&random.RandomPlugin{},
 	}
 	wantNames := map[string]bool{
 		"weather":    true,
 		"twelvedata": true,
 		"coingecko":  true,
-		"random":     true,
 	}
 	for _, p := range plugins {
 		name := p.Name()

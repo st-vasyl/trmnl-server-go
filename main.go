@@ -10,7 +10,6 @@ import (
 	"trmnl-server-go/pkg/v1/handler"
 	"trmnl-server-go/pkg/v1/plugin"
 	"trmnl-server-go/pkg/v1/plugins/crypto"
-	"trmnl-server-go/pkg/v1/plugins/random"
 	"trmnl-server-go/pkg/v1/plugins/stocks"
 	"trmnl-server-go/pkg/v1/plugins/weather"
 	"trmnl-server-go/pkg/v1/render"
@@ -104,11 +103,6 @@ func buildPlugins(c *config.Config) []plugin.Plugin {
 	if enabled["coingecko"] {
 		plugins = append(plugins, &crypto.CryptoPlugin{
 			Symbols: c.Plugins.Coingecko.Symbols,
-		})
-	}
-	if enabled["random"] {
-		plugins = append(plugins, &random.RandomPlugin{
-			ApiKey: c.Plugins.Random.APIKey,
 		})
 	}
 

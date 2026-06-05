@@ -58,7 +58,7 @@ type daily struct {
 	Sunset      []string  `json:"sunset"`
 	TMax        []float64 `json:"temperature_2m_max"`
 	TMin        []float64 `json:"temperature_2m_min"`
-	WeatherCode string    `json:"weather_code"`
+	WeatherCode []int     `json:"weather_code"`
 }
 
 type weatherUnits struct {

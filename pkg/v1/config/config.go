@@ -42,7 +42,6 @@ type Plugins struct {
 	Twelvedata Twelvedata `yaml:"twelvedata"`
 	Coingecko  Coingecko  `yaml:"coingecko"`
 	Weather    Weather    `yaml:"weather"`
-	Random     Random     `yaml:"random"`
 }
 
 type Twelvedata struct {
@@ -56,10 +55,6 @@ type Coingecko struct {
 
 type Weather struct {
 	Location string `yaml:"location"`
-}
-
-type Random struct {
-	APIKey string `yaml:"api_key"`
 }
 
 func GetConfig(filename string) (Config, error) {

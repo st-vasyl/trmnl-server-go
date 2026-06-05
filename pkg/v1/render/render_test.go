@@ -131,27 +131,61 @@ func TestConvertToGray_ReturnsGrayWithSameBounds(t *testing.T) {
 	}
 }
 
-func TestAddImageFromBase64_ValidPNGDecodes(t *testing.T) {
-	img := NewImage(800, 480)
-	// icons.Battery100 is a known-good base64 PNG shipped in the repo.
-	if err := AddImageFromBase64(img, icons.Battery100, image.Point{0, 0}); err != nil {
-		t.Fatalf("AddImageFromBase64: %v", err)
+// smallPNG returns bytes of a tiny valid PNG for seeding the icon cache.
+func smallPNG(t *testing.T) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, NewImage(8, 8)); err != nil {
+		t.Fatalf("encode png: %v", err)
+	}
+	return buf.Bytes()
+}
+
+// seedIconCache writes valid PNGs into ./icons so icons.Load resolves from the
+// on-disk cache without any network access. Removed on cleanup.
+func seedIconCache(t *testing.T, names ...string) {
+	t.Helper()
+	if err := os.MkdirAll("icons", 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll("icons") })
+	data := smallPNG(t)
+	for _, n := range names {
+		if err := os.WriteFile(filepath.Join("icons", n+".png"), data, 0644); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
-func TestAddImageFromBase64_InvalidBase64ReturnsError(t *testing.T) {
+func TestAddImageFromBytes_ValidPNGDecodes(t *testing.T) {
+	img := NewImage(800, 480)
+	if err := AddImageFromBytes(img, smallPNG(t), image.Point{0, 0}); err != nil {
+		t.Fatalf("AddImageFromBytes: %v", err)
+	}
+}
+
+func TestAddImageFromBytes_InvalidReturnsError(t *testing.T) {
 	img := NewImage(100, 100)
-	if err := AddImageFromBase64(img, "***not-base64***", image.Point{0, 0}); err == nil {
-		t.Fatal("expected error for malformed base64")
+	if err := AddImageFromBytes(img, []byte("not a png"), image.Point{0, 0}); err == nil {
+		t.Fatal("expected error for non-PNG bytes")
+	}
+}
+
+func TestAddIcon_DrawsCachedIcon(t *testing.T) {
+	seedIconCache(t, icons.Wind)
+	img := NewImage(800, 480)
+	if err := AddIcon(img, icons.Wind, image.Point{0, 0}); err != nil {
+		t.Fatalf("AddIcon: %v", err)
 	}
 }
 
 func TestAddImageVoltage_DispatchesByThreshold(t *testing.T) {
-	// We can't easily inspect which icon was drawn, but each branch ultimately
-	// calls AddImageFromBase64 with a valid PNG from icons.* — so calling
+	seedIconCache(t, icons.Battery0, icons.Battery20, icons.Battery40,
+		icons.Battery60, icons.Battery80, icons.Battery100)
+	// Each branch selects a battery icon name and draws it; calling
 	// AddImageVoltage at representative voltages must succeed.
 	voltages := []float32{
-		4.20, // > 4.08 → Battery100
+		4.20, // > 90% → Battery100
 		4.00, // 70 < % ≤ 90 → Battery80
 		3.80, // 50 < % ≤ 70 → Battery60
 		3.55, // 30 < % ≤ 50 → Battery40

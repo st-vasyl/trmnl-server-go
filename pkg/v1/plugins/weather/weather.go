@@ -53,11 +53,12 @@ type hourly struct {
 }
 
 type daily struct {
-	Time    []string  `json:"time"`
-	Sunrise []string  `json:"sunrise"`
-	Sunset  []string  `json:"sunset"`
-	TMax    []float64 `json:"temperature_2m_max"`
-	TMin    []float64 `json:"temperature_2m_min"`
+	Time        []string  `json:"time"`
+	Sunrise     []string  `json:"sunrise"`
+	Sunset      []string  `json:"sunset"`
+	TMax        []float64 `json:"temperature_2m_max"`
+	TMin        []float64 `json:"temperature_2m_min"`
+	WeatherCode string    `json:"weather_code"`
 }
 
 type weatherUnits struct {
@@ -102,7 +103,8 @@ func getWeather(l locationResponse) (weatherResponse, error) {
 	url := fmt.Sprintf(
 		"%s/v1/forecast?latitude=%f&longitude=%f"+
 			"&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,surface_pressure,weather_code"+
-			"&hourly=temperature_2m&daily=temperature_2m_max,temperature_2m_min,sunset,sunrise"+
+			"&hourly=temperature_2m"+
+			"&daily=temperature_2m_max,temperature_2m_min,sunset,sunrise,weather_code"+
 			"&wind_speed_unit=ms&timezone=auto",
 		forecastBaseURL, l.Results[0].Latitude, l.Results[0].Longitude,
 	)
@@ -137,43 +139,43 @@ func renderScreen(city, outputPath string, voltage float32) error {
 		})
 	}
 
-	if err := render.AddImageFromBase64(img, weatherIconByCode(w.Current.WeatherCode), image.Point{-50, 0}); err != nil {
+	if err := render.AddIcon(img, weatherIconByCode(w.Current.WeatherCode), image.Point{-50, 0}); err != nil {
 		return err
 	}
 	if err := render.AddText(img, fmt.Sprintf("%.1f%s", w.Current.Temperature2m, w.CurrentUnits.Temperature2m), image.Point{30, 170}, color.Black, 50); err != nil {
 		return err
 	}
-	if err := render.AddImageFromBase64(img, icons.Temperature, image.Point{-293, -20}); err != nil {
+	if err := render.AddIcon(img, icons.Temperature, image.Point{-293, -20}); err != nil {
 		return err
 	}
 	if err := render.AddText(img, fmt.Sprintf("%.1f%s", w.Current.ApparentTemperature, w.CurrentUnits.Temperature2m), image.Point{360, 50}, color.Black, 30); err != nil {
 		return err
 	}
-	if err := render.AddImageFromBase64(img, icons.TemperatureHigh, image.Point{-300, -70}); err != nil {
+	if err := render.AddIcon(img, icons.TemperatureHigh, image.Point{-300, -70}); err != nil {
 		return err
 	}
 	if err := render.AddText(img, fmt.Sprintf("%.1f%s", w.Daily.TMax[0], w.CurrentUnits.Temperature2m), image.Point{360, 100}, color.Black, 30); err != nil {
 		return err
 	}
-	if err := render.AddImageFromBase64(img, icons.TemperatureLow, image.Point{-300, -120}); err != nil {
+	if err := render.AddIcon(img, icons.TemperatureLow, image.Point{-300, -120}); err != nil {
 		return err
 	}
 	if err := render.AddText(img, fmt.Sprintf("%.1f%s", w.Daily.TMin[0], w.CurrentUnits.Temperature2m), image.Point{360, 150}, color.Black, 30); err != nil {
 		return err
 	}
-	if err := render.AddImageFromBase64(img, humidityIcon(w.Current.RelativeHumidity2m), image.Point{-530, -20}); err != nil {
+	if err := render.AddIcon(img, humidityIcon(w.Current.RelativeHumidity2m), image.Point{-530, -20}); err != nil {
 		return err
 	}
 	if err := render.AddText(img, fmt.Sprintf("%d%s", w.Current.RelativeHumidity2m, w.CurrentUnits.RelativeHumidity2m), image.Point{590, 50}, color.Black, 30); err != nil {
 		return err
 	}
-	if err := render.AddImageFromBase64(img, icons.Wind, image.Point{-530, -70}); err != nil {
+	if err := render.AddIcon(img, icons.Wind, image.Point{-530, -70}); err != nil {
 		return err
 	}
 	if err := render.AddText(img, fmt.Sprintf("%.1fm/s", w.Current.WindSpeed10m), image.Point{590, 100}, color.Black, 30); err != nil {
 		return err
 	}
-	if err := render.AddImageFromBase64(img, icons.WindGusts, image.Point{-530, -120}); err != nil {
+	if err := render.AddIcon(img, icons.WindGusts, image.Point{-530, -120}); err != nil {
 		return err
 	}
 	if err := render.AddText(img, fmt.Sprintf("%.1fm/s", w.Current.WindGusts10m), image.Point{590, 150}, color.Black, 30); err != nil {

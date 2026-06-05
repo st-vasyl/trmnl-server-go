@@ -16,4 +16,5 @@ server
 trmnl.db
 public/
 fonts/
+/icons/
 config.yaml

@@ -2,19 +2,18 @@ package render
 
 import (
 	"bytes"
-	"encoding/base64"
+	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
 	"image/jpeg"
 	"image/png"
-	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 	"trmnl-server-go/pkg/v1/icons"
 
+	"github.com/rs/zerolog/log"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
@@ -263,14 +262,24 @@ func ConvertToGray(img *image.RGBA) *image.Gray {
 	return target
 }
 
-func AddImageFromBase64(img *image.RGBA, img64 string, point image.Point) error {
-	data := base64.NewDecoder(base64.StdEncoding, strings.NewReader(img64))
-	srcImg, err := png.Decode(data)
+func AddImageFromBytes(img *image.RGBA, data []byte, point image.Point) error {
+	srcImg, err := png.Decode(bytes.NewReader(data))
 	if err != nil {
 		return err
 	}
 	draw.Draw(img, img.Bounds(), srcImg, point, draw.Over)
 	return nil
+}
+
+// AddIcon loads an icon by name and draws it at point. A failure to load the
+// icon (e.g. offline on first run) is logged and skipped so rendering continues.
+func AddIcon(img *image.RGBA, name string, point image.Point) error {
+	data, err := icons.Load(name)
+	if err != nil {
+		log.Warn().Str("icon", name).Err(err).Msg("Skipping icon")
+		return nil
+	}
+	return AddImageFromBytes(img, data, point)
 }
 
 func AddImageVoltage(img *image.RGBA, voltage float32, point image.Point) error {
@@ -292,7 +301,7 @@ func AddImageVoltage(img *image.RGBA, voltage float32, point image.Point) error 
 		batteryImage = icons.Battery0
 	}
 
-	if err := AddImageFromBase64(img, batteryImage, point); err != nil {
+	if err := AddIcon(img, batteryImage, point); err != nil {
 		return err
 	}
 

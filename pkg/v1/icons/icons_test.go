@@ -115,6 +115,45 @@ func TestGetFont_NoFontURLReturnsError(t *testing.T) {
 	}
 }
 
+func TestRender_UnknownIconReturnsError(t *testing.T) {
+	if _, err := Render("definitely-not-an-icon", 24); err == nil {
+		t.Fatal("expected error for unknown icon name")
+	}
+}
+
+func TestRender_DrawsGlyphPixels(t *testing.T) {
+	ttf := readTestTTF(t)
+	dir := withFontOverrides(t)
+	if err := os.WriteFile(filepath.Join(dir, "MaterialSymbols.ttf"), ttf, 0644); err != nil {
+		t.Fatal(err)
+	}
+	// Map a temporary name to a glyph that exists in font.ttf ('A').
+	codepoints["__test_glyph__"] = 'A'
+	t.Cleanup(func() { delete(codepoints, "__test_glyph__") })
+
+	img, err := Render("__test_glyph__", 48)
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	b := img.Bounds()
+	if b.Dx() != 48 || b.Dy() != 48 {
+		t.Fatalf("bounds = %v, want 48x48", b)
+	}
+	rgba, ok := img.(*image.RGBA)
+	if !ok {
+		t.Fatalf("image type = %T, want *image.RGBA", img)
+	}
+	drawn := false
+	for i := 3; i < len(rgba.Pix) && !drawn; i += 4 {
+		if rgba.Pix[i] != 0 { // any non-transparent pixel
+			drawn = true
+		}
+	}
+	if !drawn {
+		t.Error("Render produced a fully transparent image")
+	}
+}
+
 func TestLoad_CacheHitSkipsNetwork(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Errorf("network hit for cached icon: %s", r.URL.Path)

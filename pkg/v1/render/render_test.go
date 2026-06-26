@@ -23,10 +23,19 @@ func TestMain(m *testing.M) {
 		// Fall back to skipping font setup; tests that require a font will
 		// be the only ones to fail. We don't want to mask other failures.
 		os.Stderr.WriteString("render tests: could not read ../../../font.ttf: " + err.Error() + "\n")
-	} else if err := SetFont(ttf); err != nil {
-		os.Stderr.WriteString("render tests: SetFont failed: " + err.Error() + "\n")
+	} else {
+		if err := SetFont(ttf); err != nil {
+			os.Stderr.WriteString("render tests: SetFont failed: " + err.Error() + "\n")
+		}
+		// Seed the icon font cache (./icons/MaterialSymbols.ttf) so AddIcon
+		// renders without any network access. font.ttf lacks the Material
+		// Symbols glyphs, so icons draw empty — AddIcon must still not error.
+		_ = os.MkdirAll("icons", 0755)
+		_ = os.WriteFile(filepath.Join("icons", "MaterialSymbols.ttf"), ttf, 0644)
 	}
-	os.Exit(m.Run())
+	code := m.Run()
+	os.RemoveAll("icons")
+	os.Exit(code)
 }
 
 // withoutFont temporarily clears the cached font for tests that exercise the
@@ -141,22 +150,6 @@ func smallPNG(t *testing.T) []byte {
 	return buf.Bytes()
 }
 
-// seedIconCache writes valid PNGs into ./icons so icons.Load resolves from the
-// on-disk cache without any network access. Removed on cleanup.
-func seedIconCache(t *testing.T, names ...string) {
-	t.Helper()
-	if err := os.MkdirAll("icons", 0755); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { os.RemoveAll("icons") })
-	data := smallPNG(t)
-	for _, n := range names {
-		if err := os.WriteFile(filepath.Join("icons", n+".png"), data, 0644); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
 func TestAddImageFromBytes_ValidPNGDecodes(t *testing.T) {
 	img := NewImage(800, 480)
 	if err := AddImageFromBytes(img, smallPNG(t), image.Point{0, 0}); err != nil {
@@ -171,31 +164,18 @@ func TestAddImageFromBytes_InvalidReturnsError(t *testing.T) {
 	}
 }
 
-func TestAddIcon_DrawsCachedIcon(t *testing.T) {
-	seedIconCache(t, icons.Wind)
+func TestAddIcon_DrawsWithoutError(t *testing.T) {
 	img := NewImage(800, 480)
-	if err := AddIcon(img, icons.Wind, image.Point{0, 0}); err != nil {
+	if err := AddIcon(img, icons.Wind, image.Point{0, 0}, 48); err != nil {
 		t.Fatalf("AddIcon: %v", err)
 	}
 }
 
 func TestAddImageVoltage_DispatchesByThreshold(t *testing.T) {
-	seedIconCache(t, icons.Battery0, icons.Battery20, icons.Battery40,
-		icons.Battery60, icons.Battery80, icons.Battery100)
-	// Each branch selects a battery icon name and draws it; calling
-	// AddImageVoltage at representative voltages must succeed.
-	voltages := []float32{
-		4.20, // > 90% → Battery100
-		4.00, // 70 < % ≤ 90 → Battery80
-		3.80, // 50 < % ≤ 70 → Battery60
-		3.55, // 30 < % ≤ 50 → Battery40
-		3.20, // 10 < % ≤ 30 → Battery20
-		3.00, // ≤ 10 → Battery0
-		2.50, // very low → Battery0
-	}
+	voltages := []float32{4.20, 4.00, 3.80, 3.55, 3.20, 3.00, 2.50}
 	for _, v := range voltages {
 		img := NewImage(800, 480)
-		if err := AddImageVoltage(img, v, image.Point{-750, -5}); err != nil {
+		if err := AddImageVoltage(img, v, image.Point{-750, -5}, 40); err != nil {
 			t.Errorf("voltage %v: %v", v, err)
 		}
 	}

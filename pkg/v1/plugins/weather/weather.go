@@ -164,13 +164,13 @@ func renderScreen(city, outputPath string, voltage float32) error {
 	if err := render.AddText(img, fmt.Sprintf("%.1f m/s", w.Current.WindGusts10m), image.Point{590, 150}, color.Black, 30); err != nil {
 		return err
 	}
-	// Forecast text
+
+	// Draw a 3-day forecast with weather icon, temperature, wind and precipitation
 	if err := render.AddText(img, "3-DAY FORECAST", image.Point{300, 220}, color.Black, 30); err != nil {
 		return err
 	}
 
-	// Add wheather Day+1
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		shift := 250 * i
 		if err := render.AddIcon(img, weatherIconByCode(w.Daily.WeatherCode[i+1]), image.Point{-80 - shift, -250}, 100); err != nil {
 			return err

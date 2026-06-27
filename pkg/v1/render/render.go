@@ -220,42 +220,6 @@ func AddStocksChart(img *image.RGBA, records BoxPlotRecords, chartWidth, chartHe
 	return nil
 }
 
-func AddWeatherChart(img *image.RGBA, daily_min, daily_max ChartRecords, chartWidth, chartHeight int, point image.Point) error {
-	p := plot.New()
-	xticks := plot.TimeTicks{Format: "2006-01-02"}
-	p.X.Tick.Marker = xticks
-	p.Add(plotter.NewGrid())
-	daily_min_data := genPoints(daily_min)
-
-	daily_min_line, _, err := plotter.NewLinePoints(daily_min_data)
-	if err != nil {
-		return err
-	}
-	daily_min_line.Color = color.RGBA{A: 255}
-
-	p.Add(daily_min_line)
-
-	daily_max_data := genPoints(daily_max)
-
-	daily_max_line, _, err := plotter.NewLinePoints(daily_max_data)
-	if err != nil {
-		return err
-	}
-	daily_max_line.Color = color.RGBA{A: 255}
-
-	p.Add(daily_max_line)
-	buf := bytes.NewBuffer(nil)
-	writerTo, err := p.WriterTo(vg.Points(float64(chartWidth)), vg.Points(float64(chartHeight)), "png")
-	writerTo.WriteTo(buf)
-
-	chart, _, err := image.Decode(buf)
-	if err != nil {
-		return err
-	}
-	draw.Draw(img, img.Bounds(), chart, point, draw.Over)
-	return nil
-}
-
 func ConvertToGray(img *image.RGBA) *image.Gray {
 	target := image.NewGray(img.Bounds())
 	draw.Draw(target, target.Bounds(), img, img.Bounds().Min, draw.Src)

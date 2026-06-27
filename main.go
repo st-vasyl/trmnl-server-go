@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"os"
 	"sync"
 	"time"
@@ -19,7 +20,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var configFile = "config.yaml"
+var configFile string
 
 func init() {
 	zerolog.TimeFieldFormat = ""
@@ -30,6 +31,9 @@ func init() {
 }
 
 func main() {
+	flag.StringVar(&configFile, "c", "config.yaml", "path to the config file")
+	flag.Parse()
+
 	c, err := config.GetConfig(configFile)
 	if err != nil {
 		log.Error().Str("config", configFile).Err(err).Msg("Failed to load config")

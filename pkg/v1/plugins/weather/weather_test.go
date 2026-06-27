@@ -72,16 +72,13 @@ func TestGetWeather(t *testing.T) {
 				"surface_pressure": 1013.0,
 				"weather_code": 3
 			},
-			"hourly": {
-				"time": ["2024-01-01T10:00", "2024-01-01T11:00"],
-				"temperature_2m": [12.3, 13.0]
-			},
 			"daily": {
 				"time": ["2024-01-01"],
-				"sunrise": ["2024-01-01T07:00"],
-				"sunset": ["2024-01-01T17:00"],
 				"temperature_2m_max": [14.0],
-				"temperature_2m_min": [5.0]
+				"temperature_2m_min": [5.0],
+				"weather_code": [3],
+				"wind_speed_10m_max": [7.5],
+				"precipitation_probability_max": [40]
 			}
 		}`))
 	}))
@@ -100,8 +97,14 @@ func TestGetWeather(t *testing.T) {
 	if weather.Current.WeatherCode != 3 {
 		t.Errorf("WeatherCode = %d, want 3", weather.Current.WeatherCode)
 	}
-	if len(weather.Hourly.Time) != 2 {
-		t.Errorf("Hourly len = %d, want 2", len(weather.Hourly.Time))
+	if len(weather.Daily.TMax) != 1 || weather.Daily.TMax[0] != 14.0 {
+		t.Errorf("Daily.TMax = %v, want [14]", weather.Daily.TMax)
+	}
+	if len(weather.Daily.WeatherCode) != 1 || weather.Daily.WeatherCode[0] != 3 {
+		t.Errorf("Daily.WeatherCode = %v, want [3]", weather.Daily.WeatherCode)
+	}
+	if len(weather.Daily.Wind) != 1 || weather.Daily.Wind[0] != 7.5 {
+		t.Errorf("Daily.Wind = %v, want [7.5]", weather.Daily.Wind)
 	}
 }
 

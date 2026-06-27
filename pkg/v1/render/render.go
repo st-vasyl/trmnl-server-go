@@ -120,7 +120,7 @@ func WriteFile(filename string, img *image.RGBA, voltage float32) error {
 		return err
 	}
 
-	if err := AddImageVoltage(img, voltage, image.Point{-750, -5}, 40); err != nil {
+	if err := AddImageVoltage(img, voltage, image.Point{-750, -1}, 40); err != nil {
 		return err
 	}
 

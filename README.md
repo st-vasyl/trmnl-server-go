@@ -11,14 +11,14 @@ images to the devices on a schedule — no cloud account required.
   - `twelvedata` — 7-day stock OHLC chart (TwelveData, API key required)
   - `coingecko` — 24h crypto price chart (CoinGecko, no API key)
 - **Self-contained** — SQLite for storage, no external database or message broker
-- **Auto-provisioned assets** — fonts (Google Fonts) and icons are downloaded on first run and cached locally
+- **Auto-provisioned assets** — fonts and icons (both from Google Fonts) are downloaded on first run and cached locally
 - **Screen rotation** — each device cycles through the plugins you enable
 
 ## Requirements
 
 - Go **1.25.5** or newer
 - A host reachable by your devices over the network (typically a LAN IP)
-- Outbound internet access for plugin APIs, Google Fonts, and GitHub (icon assets)
+- Outbound internet access for plugin APIs and Google Fonts (text fonts and Material Symbols icons)
 
 ## Quickstart
 
@@ -45,10 +45,15 @@ On first run the server creates these in the working directory:
 |-------------|---------------------------------------------------|
 | `public/`   | Rendered screen PNGs served to devices            |
 | `fonts/`    | Cached TTF downloaded from Google Fonts            |
-| `icons/`    | Cached weather/battery icon PNGs                   |
+| `icons/`    | Cached Material Symbols icon font (Google Fonts)   |
 | `trmnl.db`  | SQLite database (devices, screen state, voltage)   |
 
-The config file is read from `config.yaml` in the working directory.
+By default the server reads `config.yaml` from the working directory. Pass `-c <path>` to use a different
+config file:
+
+```bash
+go run main.go -c /etc/trmnl/config.yaml   # or: ./server -c /etc/trmnl/config.yaml
+```
 
 ## Configuration
 
@@ -141,9 +146,9 @@ devices fetch are always reasonably fresh.
 
 - **Device shows nothing / can't load images** — `external_url` is almost always the cause. Confirm it's the
   host:port the device can actually reach, that `port` matches, and that no firewall blocks it.
-- **Screens render but icons are missing** — icons are downloaded from GitHub on first use and cached in
-  `icons/`. If the host has no internet on first run, icons are skipped (text still renders); they appear
-  once connectivity returns and the cache fills.
+- **Screens render but icons are missing** — icons are rendered from the Material Symbols font, downloaded
+  from Google Fonts on first use and cached in `icons/`. If the host has no internet on first run, icons are
+  skipped (text still renders); they appear once connectivity returns and the cache fills.
 - **Server exits on startup with a font error** — the font is fetched from Google Fonts; check connectivity
   or set `font_name` to a valid Google Fonts family.
 - **A plugin shows stale or empty data** — check the plugin's API key/symbols and look at the logs. Set

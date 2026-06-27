@@ -256,21 +256,6 @@ func TestAddStocksChart_DrawsWithoutError(t *testing.T) {
 	}
 }
 
-func TestAddWeatherChart_DrawsWithoutError(t *testing.T) {
-	img := NewImage(800, 480)
-	mins := ChartRecords{ChartRecord: []ChartRecord{
-		{T: 1_700_000_000_000, V: 5},
-		{T: 1_700_086_400_000, V: 6},
-	}}
-	maxes := ChartRecords{ChartRecord: []ChartRecord{
-		{T: 1_700_000_000_000, V: 12},
-		{T: 1_700_086_400_000, V: 14},
-	}}
-	if err := AddWeatherChart(img, mins, maxes, 400, 200, image.Point{0, 0}); err != nil {
-		t.Fatalf("AddWeatherChart: %v", err)
-	}
-}
-
 func TestWriteFile_ProducesDecodablePNG(t *testing.T) {
 	img := NewImage(100, 60)
 	path := filepath.Join(t.TempDir(), "out.png")

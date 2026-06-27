@@ -120,7 +120,7 @@ func WriteFile(filename string, img *image.RGBA, voltage float32) error {
 		return err
 	}
 
-	if err := AddImageVoltage(img, voltage, image.Point{-750, -5}, 40); err != nil {
+	if err := AddImageVoltage(img, voltage, image.Point{-750, -1}, 40); err != nil {
 		return err
 	}
 
@@ -210,42 +210,6 @@ func AddStocksChart(img *image.RGBA, records BoxPlotRecords, chartWidth, chartHe
 	if err != nil {
 		return err
 	}
-	writerTo.WriteTo(buf)
-
-	chart, _, err := image.Decode(buf)
-	if err != nil {
-		return err
-	}
-	draw.Draw(img, img.Bounds(), chart, point, draw.Over)
-	return nil
-}
-
-func AddWeatherChart(img *image.RGBA, daily_min, daily_max ChartRecords, chartWidth, chartHeight int, point image.Point) error {
-	p := plot.New()
-	xticks := plot.TimeTicks{Format: "2006-01-02"}
-	p.X.Tick.Marker = xticks
-	p.Add(plotter.NewGrid())
-	daily_min_data := genPoints(daily_min)
-
-	daily_min_line, _, err := plotter.NewLinePoints(daily_min_data)
-	if err != nil {
-		return err
-	}
-	daily_min_line.Color = color.RGBA{A: 255}
-
-	p.Add(daily_min_line)
-
-	daily_max_data := genPoints(daily_max)
-
-	daily_max_line, _, err := plotter.NewLinePoints(daily_max_data)
-	if err != nil {
-		return err
-	}
-	daily_max_line.Color = color.RGBA{A: 255}
-
-	p.Add(daily_max_line)
-	buf := bytes.NewBuffer(nil)
-	writerTo, err := p.WriterTo(vg.Points(float64(chartWidth)), vg.Points(float64(chartHeight)), "png")
 	writerTo.WriteTo(buf)
 
 	chart, _, err := image.Decode(buf)

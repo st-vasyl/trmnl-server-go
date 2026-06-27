@@ -1,15 +1,18 @@
+# Tests output
 coverage.html
 coverage.out
 profile.out
 ./cover
 
+# Environment related
 .idea/
 .vscode/
-
+.claude/
 .env
 .DS_Store
 __debug_bin*
 
+# Cashed and runtime
 bin/
 main
 server

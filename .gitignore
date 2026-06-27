@@ -13,11 +13,11 @@ profile.out
 __debug_bin*
 
 # Cashed and runtime
-bin/
-main
-server
-trmnl.db
-public/
-fonts/
+/bin/
+/main
+/server
+/trmnl.db
+/public/
+/fonts/
 /icons/
 /config.yaml

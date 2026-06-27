@@ -16,7 +16,7 @@ images to the devices on a schedule — no cloud account required.
 
 ## Requirements
 
-- Go **1.25.5** or newer
+- Go **1.26.4** or newer
 - A host reachable by your devices over the network (typically a LAN IP)
 - Outbound internet access for plugin APIs and Google Fonts (text fonts and Material Symbols icons)
 

@@ -40,7 +40,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
         run: |
-          BIN="server-${GOOS}-${GOARCH}"
+          BIN="trml_server_${GOOS}_${GOARCH}"
           if [ "$GOOS" = "windows" ]; then
             BIN="${BIN}.exe"
           fi

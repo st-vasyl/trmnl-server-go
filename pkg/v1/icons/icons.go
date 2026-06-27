@@ -47,12 +47,12 @@ const (
 // glyph (a Private-Use-Area rune). Values come from Google's official
 // MaterialSymbolsOutlined.codepoints file.
 var codepoints = map[string]rune{
-	Battery0:   0xebdc, // battery_0_bar
-	Battery20:  0xf09d, // battery_2_bar
-	Battery40:  0xf09e, // battery_3_bar
-	Battery60:  0xf09f, // battery_4_bar
-	Battery80:  0xf0a0, // battery_5_bar
-	Battery100: 0xe1a5, // battery_full
+	Battery0:   0xf306, // battery_0_bar
+	Battery20:  0xf256, // battery_2_bar
+	Battery40:  0xf254, // battery_3_bar
+	Battery60:  0xf253, // battery_4_bar
+	Battery80:  0xf252, // battery_5_bar
+	Battery100: 0xf304, // battery_full
 
 	WeatherCode0:  0xe81a, // sunny
 	WeatherCode1:  0xf172, // partly_cloudy_day
@@ -66,15 +66,15 @@ var codepoints = map[string]rune{
 	WeatherCode9:  0xebdb, // thunderstorm
 
 	Temperature:     0xf076, // thermostat
-	TemperatureLow:  0xe313, // keyboard_arrow_down
-	TemperatureHigh: 0xe316, // keyboard_arrow_up
+	TemperatureLow:  0xf37a, // keyboard_arrow_down
+	TemperatureHigh: 0xf379, // keyboard_arrow_up
 
 	HumidityHigh: 0xf163, // humidity_high
 	HumidityMid:  0xf165, // humidity_mid
 	HumidityLow:  0xf164, // humidity_low
 
-	Wind:      0xefd8, // air
-	WindGusts: 0xf070, // storm
+	Wind:      0xefd8, // wind
+	WindGusts: 0xec0c, // windGusts
 }
 
 // Render rasterizes the named icon glyph at size×size pixels onto a transparent

@@ -45,6 +45,13 @@ func main() {
 
 	log.Info().Str("config", configFile).Str("db", c.Common.Dbpath).Msg("Services starting")
 
+	// Ensure the directory that holds rendered screen PNGs exists before the
+	// worker tries to write to it (it doesn't exist on a first run).
+	if err := os.MkdirAll("public", 0755); err != nil {
+		log.Error().Err(err).Msg("Failed to create public directory")
+		os.Exit(1)
+	}
+
 	store, err := db.Open(c.Common.Dbpath)
 	if err != nil {
 		log.Error().Str("dbpath", c.Common.Dbpath).Err(err).Msg("Failed to open DB")

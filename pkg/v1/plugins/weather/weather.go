@@ -139,51 +139,51 @@ func renderScreen(city, outputPath string, voltage float32) error {
 		})
 	}
 
-	if err := render.AddIcon(img, weatherIconByCode(w.Current.WeatherCode), image.Point{-50, 0}); err != nil {
+	if err := render.AddIcon(img, weatherIconByCode(w.Current.WeatherCode), image.Point{-50, 0}, 128); err != nil {
 		return err
 	}
 	if err := render.AddText(img, fmt.Sprintf("%.1f%s", w.Current.Temperature2m, w.CurrentUnits.Temperature2m), image.Point{30, 170}, color.Black, 50); err != nil {
 		return err
 	}
-	if err := render.AddIcon(img, icons.Temperature, image.Point{-293, -20}); err != nil {
+	if err := render.AddIcon(img, icons.Temperature, image.Point{-300, -20}, 40); err != nil {
 		return err
 	}
 	if err := render.AddText(img, fmt.Sprintf("%.1f%s", w.Current.ApparentTemperature, w.CurrentUnits.Temperature2m), image.Point{360, 50}, color.Black, 30); err != nil {
 		return err
 	}
-	if err := render.AddIcon(img, icons.TemperatureHigh, image.Point{-300, -70}); err != nil {
+	if err := render.AddIcon(img, icons.TemperatureHigh, image.Point{-300, -70}, 40); err != nil {
 		return err
 	}
 	if err := render.AddText(img, fmt.Sprintf("%.1f%s", w.Daily.TMax[0], w.CurrentUnits.Temperature2m), image.Point{360, 100}, color.Black, 30); err != nil {
 		return err
 	}
-	if err := render.AddIcon(img, icons.TemperatureLow, image.Point{-300, -120}); err != nil {
+	if err := render.AddIcon(img, icons.TemperatureLow, image.Point{-300, -120}, 40); err != nil {
 		return err
 	}
 	if err := render.AddText(img, fmt.Sprintf("%.1f%s", w.Daily.TMin[0], w.CurrentUnits.Temperature2m), image.Point{360, 150}, color.Black, 30); err != nil {
 		return err
 	}
-	if err := render.AddIcon(img, humidityIcon(w.Current.RelativeHumidity2m), image.Point{-530, -20}); err != nil {
+	if err := render.AddIcon(img, humidityIcon(w.Current.RelativeHumidity2m), image.Point{-530, -20}, 40); err != nil {
 		return err
 	}
 	if err := render.AddText(img, fmt.Sprintf("%d%s", w.Current.RelativeHumidity2m, w.CurrentUnits.RelativeHumidity2m), image.Point{590, 50}, color.Black, 30); err != nil {
 		return err
 	}
-	if err := render.AddIcon(img, icons.Wind, image.Point{-530, -70}); err != nil {
+	if err := render.AddIcon(img, icons.Wind, image.Point{-530, -70}, 40); err != nil {
 		return err
 	}
 	if err := render.AddText(img, fmt.Sprintf("%.1fm/s", w.Current.WindSpeed10m), image.Point{590, 100}, color.Black, 30); err != nil {
 		return err
 	}
-	if err := render.AddIcon(img, icons.WindGusts, image.Point{-530, -120}); err != nil {
+	if err := render.AddIcon(img, icons.WindGusts, image.Point{-530, -120}, 40); err != nil {
 		return err
 	}
 	if err := render.AddText(img, fmt.Sprintf("%.1fm/s", w.Current.WindGusts10m), image.Point{590, 150}, color.Black, 30); err != nil {
 		return err
 	}
-	if err := render.AddChart(img, temperature, 550, 200, image.Point{-30, -200}); err != nil {
-		return err
-	}
+	// if err := render.AddChart(img, temperature, 550, 200, image.Point{-30, -200}); err != nil {
+	// 	return err
+	// }
 
 	return render.WriteFile(outputPath, img, voltage)
 }

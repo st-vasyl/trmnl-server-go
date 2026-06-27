@@ -120,7 +120,7 @@ func WriteFile(filename string, img *image.RGBA, voltage float32) error {
 		return err
 	}
 
-	if err := AddImageVoltage(img, voltage, image.Point{-750, -5}); err != nil {
+	if err := AddImageVoltage(img, voltage, image.Point{-750, -5}, 40); err != nil {
 		return err
 	}
 
@@ -271,18 +271,20 @@ func AddImageFromBytes(img *image.RGBA, data []byte, point image.Point) error {
 	return nil
 }
 
-// AddIcon loads an icon by name and draws it at point. A failure to load the
-// icon (e.g. offline on first run) is logged and skipped so rendering continues.
-func AddIcon(img *image.RGBA, name string, point image.Point) error {
-	data, err := icons.Load(name)
+// AddIcon renders an icon by name at the given size and draws it at point. A
+// failure to render the icon (e.g. offline on first run) is logged and skipped
+// so rendering continues.
+func AddIcon(img *image.RGBA, name string, point image.Point, size int) error {
+	ic, err := icons.Render(name, size)
 	if err != nil {
 		log.Warn().Str("icon", name).Err(err).Msg("Skipping icon")
 		return nil
 	}
-	return AddImageFromBytes(img, data, point)
+	draw.Draw(img, img.Bounds(), ic, point, draw.Over)
+	return nil
 }
 
-func AddImageVoltage(img *image.RGBA, voltage float32, point image.Point) error {
+func AddImageVoltage(img *image.RGBA, voltage float32, point image.Point, size int) error {
 	batteryPercentage := ((voltage - 3) / 0.012)
 	var batteryImage string
 
@@ -301,7 +303,7 @@ func AddImageVoltage(img *image.RGBA, voltage float32, point image.Point) error 
 		batteryImage = icons.Battery0
 	}
 
-	if err := AddIcon(img, batteryImage, point); err != nil {
+	if err := AddIcon(img, batteryImage, point, size); err != nil {
 		return err
 	}
 

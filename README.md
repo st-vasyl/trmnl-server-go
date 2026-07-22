@@ -42,7 +42,11 @@ Prebuilt multi-arch images (**amd64** + **arm64**) are published to Docker Hub a
 cp example/config.yaml config.yaml
 # Edit config.yaml — set common.external_url to your host's LAN IP, e.g. 192.168.1.50:8080
 
-# 2. Run the published image
+# 2. Run the latest image
+# either with docker-compose
+docker-compose -f docker-compose.yml up -d
+
+# or with docker run
 docker run -d \
   --name trmnl-server \
   --restart unless-stopped \

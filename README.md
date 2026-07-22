@@ -1,8 +1,8 @@
 # TRMNL Server Go
 
-A self-hosted backend for [TRMNL](https://usetrmnl.com/) e-ink display devices (800×480). It registers
-your devices, fetches live data through built-in plugins, renders each screen as a PNG, and serves those
-images to the devices (per device) on a schedule — no cloud account required.
+A self-hosted backend for [TRMNL](https://usetrmnl.com/) e-ink display devices (800×480).
+It's a single binary self-hosted server without any additional dependencies (except of course fetching data). 
+You can run it either as binary or docker container on your local machine or router. 
 
 ## Features
 

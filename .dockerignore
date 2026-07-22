@@ -1,0 +1,32 @@
+# VCS / editor / tooling
+.git
+.github
+.gitignore
+.claude
+.idea
+.vscode
+.DS_Store
+
+# Build output / binaries
+/server
+/dist/
+/bin/
+__debug_bin*
+
+# Runtime state & caches (regenerated inside the container / downloaded on first run)
+/config.yaml
+/public/
+/fonts/
+/icons/
+*.db
+
+# Test / coverage output
+coverage.*
+profile.out
+cover/
+
+# Not needed in the image
+/docs/
+README.md
+Makefile
+example/

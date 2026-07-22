@@ -1,4 +1,4 @@
-BINARY := server
+BINARY := trmnl-server-go
 COVERAGE := coverage.out
 
 .PHONY: build test coverage run clean

@@ -2,25 +2,68 @@
 
 A self-hosted backend for [TRMNL](https://usetrmnl.com/) e-ink display devices (800×480). It registers
 your devices, fetches live data through built-in plugins, renders each screen as a PNG, and serves those
-images to the devices on a schedule — no cloud account required.
+images to the devices (per device) on a schedule — no cloud account required.
 
 ## Features
 
 - **Built-in plugins**
   - `weather` — current conditions and forecast (Open-Meteo, no API key)
-  - `twelvedata` — 7-day stock OHLC chart (TwelveData, API key required)
+  - `twelvedata` — 7-day stock OHLC chart (TwelveData, Free API key required)
   - `coingecko` — 24h crypto price chart (CoinGecko, no API key)
 - **Self-contained** — SQLite for storage, no external database or message broker
 - **Auto-provisioned assets** — fonts and icons (both from Google Fonts) are downloaded on first run and cached locally
-- **Screen rotation** — each device cycles through the plugins you enable
+- **Auto-plugin rotation** — each device cycles through the plugins you enable
+
+## Example screens
+
+Each enabled plugin renders an 800×480 screen for the device. Here's what the built-in plugins produce:
+
+| Weather | Stocks (TwelveData) | Crypto (CoinGecko) |
+|:---:|:---:|:---:|
+| ![Weather screen — current conditions and forecast](example/weather.png) | ![Stocks screen — AAPL 7-day OHLC chart](example/twelvedata_AAPL.png) | ![Crypto screen — Bitcoin 24h price chart](example/coingecko_bitcoin.png) |
 
 ## Requirements
 
-- Go **1.26.4** or newer
+- Go **1.26** or newer
 - A host reachable by your devices over the network (typically a LAN IP)
 - Outbound internet access for plugin APIs and Google Fonts (text fonts and Material Symbols icons)
 
 ## Quickstart
+
+## Run with Docker
+
+Prebuilt multi-arch images (**amd64** + **arm64**) are published to Docker Hub as
+[`stvasyl/trmnl-server-go`](https://hub.docker.com/r/stvasyl/trmnl-server-go).
+
+### Quick run from Docker Hub
+
+```bash
+# 1. Create your config
+cp example/config.yaml config.yaml
+# Edit config.yaml — set common.external_url to your host's LAN IP, e.g. 192.168.1.50:8080
+
+# 2. Run the published image
+docker run -d \
+  --name trmnl-server \
+  --restart unless-stopped \
+  -p 8080:8080 \
+  -v trmnl-data:/data \
+  -v "$(pwd)/config.yaml:/config/config.yaml:ro" \
+  stvasyl/trmnl-server-go:latest
+```
+
+### Notes
+
+- **Persistence** — all runtime state (the SQLite DB, rendered PNGs, and the cached fonts/icons) lives in
+  the named volume `trmnl-data`, so device registrations survive restarts and rebuilds.
+- **Config** — `config.yaml` is bind-mounted read-only at `/config/config.yaml`; API keys are never baked
+  into the image. Edit the file and restart the container to apply changes.
+- **Ports** — the container listens on `8080`. Keep `port:` in your config, the port in `external_url`, and
+  the published port in agreement.
+- **Health** — the container reports health via the `/healthz` endpoint.
+
+
+## Build
 
 ```bash
 # 1. Create your config from the template
@@ -35,8 +78,8 @@ make run          # or: go run main.go
 To build a standalone binary instead:
 
 ```bash
-make build        # produces ./server
-./server
+make build
+./trmnl-server-go
 ```
 
 On first run the server creates these in the working directory:
@@ -73,7 +116,7 @@ All settings live in `config.yaml`. Start from `example/config.yaml`.
 | `font_name`       | string     | Any Google Fonts family name (defaults to `Anonymous Pro`).                 |
 
 > **`external_url` is the setting people most often get wrong.** It must be the address a physical device
-> can reach (e.g. `192.168.1.50:8080`), not `localhost`.
+> can reach (e.g. `192.168.1.1:8080`), not `localhost`.
 
 ### `plugins`
 
@@ -81,8 +124,7 @@ Only the plugins you list in `enabled_plugins` need a config block.
 
 | Plugin       | Key                  | Description                              |
 |--------------|----------------------|------------------------------------------|
-| `twelvedata` | `twelvedata_api_key` | Your TwelveData API key.                 |
-| `twelvedata` | `symbols`            | Ticker symbols, e.g. `["googl", "nvda"]`. |
+| `twelvedata` | `symbols`            | Ticker symbols, e.g. `["googl", "nvda"]`.|
 | `coingecko`  | `symbols`            | Coin IDs, e.g. `["bitcoin"]`.            |
 | `weather`    | `location`           | City name, e.g. `Wroclaw`.               |
 
@@ -90,26 +132,28 @@ Example:
 
 ```yaml
 common:
-  external_url: "192.168.1.50:8080"
+  external_url: "192.168.0.1:8080"
   port: 8080
   dbpath: "./trmnl.db"
   refresh_time: 300
   update_time: 3600
-  debug: true
-  enabled_plugins: ["weather", "twelvedata", "coingecko"]
+  debug: false
   font_name: "Anonymous Pro"
+  enabled_plugins: ["weather", "twelvedata", "coingecko"]
 
 plugins:
   twelvedata:
-    twelvedata_api_key: "your-key-here"
-    symbols: ["googl", "nvda"]
+    twelvedata_api_key: demo
+    symbols: ["AAPL"]
   coingecko:
     symbols: ["bitcoin"]
   weather:
-    location: "Wroclaw"
+    location: Kyiv
 ```
 
 ## Connecting a TRMNL device
+
+This server works perfectly fine with the TRMNL open firmware [trmnl-firmware](https://github.com/usetrmnl/trmnl-firmware)
 
 Point your device's custom server URL at this server's `external_url`. The device then:
 
@@ -144,6 +188,7 @@ devices fetch are always reasonably fresh.
 
 ## Troubleshooting
 
+- **After registering NEW device it can't load images** - Restart the server. Auto update plugins data after registering new device is on TODO. 
 - **Device shows nothing / can't load images** — `external_url` is almost always the cause. Confirm it's the
   host:port the device can actually reach, that `port` matches, and that no firewall blocks it.
 - **Screens render but icons are missing** — icons are rendered from the Material Symbols font, downloaded

@@ -1,0 +1,24 @@
+services:
+  trmnl-server:
+    build:
+      context: .
+    image: trmnl-server-go:local
+    container_name: trmnl-server
+    restart: unless-stopped
+    ports:
+      # host:container. Must match `port:` in config and the port in external_url.
+      - "8080:8080"
+    volumes:
+      # Persistent state: SQLite DB, rendered PNGs, cached fonts/icons.
+      - trmnl-data:/data
+      # Config with secrets, mounted read-only (never baked into the image).
+      - ./config.yaml:/config/config.yaml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  trmnl-data:

@@ -9,6 +9,7 @@ import (
 	"trmnl-server-go/pkg/v1/db"
 	"trmnl-server-go/pkg/v1/plugin"
 	"trmnl-server-go/pkg/v1/screens"
+	"trmnl-server-go/pkg/v1/worker"
 
 	"github.com/rs/zerolog/log"
 )
@@ -44,6 +45,7 @@ func NewMux(version string, c *config.Config, plugins []plugin.Plugin, store *db
 			defaultScreen = firstScreen[0]
 		}
 		store.RegisterDevice(deviceId, apiKey, defaultScreen)
+		worker.UpdateData(c, plugins, store)
 
 		log.Info().Str("func", "setup").Str("api-key", apiKey).Str("id", deviceId).Str("voltage", voltage).Msg("Device setup requested")
 

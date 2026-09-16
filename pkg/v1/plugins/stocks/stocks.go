@@ -193,18 +193,6 @@ func signed(v float64) string {
 	}
 }
 
-// trendIcon picks the up, down, or flat glyph for a price change.
-func trendIcon(change float64) string {
-	switch {
-	case change >= 0.005:
-		return icons.TrendUp
-	case change <= -0.005:
-		return icons.TrendDown
-	default:
-		return icons.TrendFlat
-	}
-}
-
 // quoteStatusLine formats the last quote time in the exchange's zone (UTC if
 // unknown) followed by the market status, e.g. "Sep 15 15:59 · Closed".
 func quoteStatusLine(unix int64, tz string, open bool) string {
@@ -274,7 +262,7 @@ func renderScreen(symbol, apiKey, outputPath string, voltage float32) error {
 	change := parseFloat(q.Change)
 	changeX := 20 + priceW + 30
 	// AddIcon takes the negated destination position (see render.AddIcon).
-	if err := render.AddIcon(img, trendIcon(change), image.Point{-changeX, -86}, 40); err != nil {
+	if err := render.AddIcon(img, icons.Trend(change), image.Point{-changeX, -86}, 40); err != nil {
 		return err
 	}
 	if err := render.AddText(img, formatChange(change, parseFloat(q.PercentChange)), image.Point{changeX + 48, 118}, black, 30); err != nil {

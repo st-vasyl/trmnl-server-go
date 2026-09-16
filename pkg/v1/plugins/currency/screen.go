@@ -52,7 +52,7 @@ func drawCell(img *image.RGBA, cx, cy int, pair Pair, st pairStats) error {
 		return err
 	}
 	// AddIcon takes the negated destination position (see render.AddIcon).
-	if err := render.AddIcon(img, trendIcon(st.Change), image.Point{-(cx + 20), -(cy + 175)}, 44); err != nil {
+	if err := render.AddIcon(img, icons.Trend(st.Change), image.Point{-(cx + 20), -(cy + 175)}, 44); err != nil {
 		return err
 	}
 	return render.AddText(img, formatChange(st.Change), image.Point{cx + 75, cy + 212}, color.Black, 30)
@@ -76,17 +76,5 @@ func formatChange(pct float64) string {
 		return fmt.Sprintf("%.2f%%", pct)
 	default:
 		return "0.00%"
-	}
-}
-
-// trendIcon picks the up, down, or flat glyph for a percent change.
-func trendIcon(pct float64) string {
-	switch {
-	case pct >= flatThreshold:
-		return icons.TrendUp
-	case pct <= -flatThreshold:
-		return icons.TrendDown
-	default:
-		return icons.TrendFlat
 	}
 }

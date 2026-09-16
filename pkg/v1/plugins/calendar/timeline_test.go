@@ -12,24 +12,32 @@ func timed(uid string, sh, sm, eh, em int) Event {
 	return Event{UID: uid, Title: uid, Start: at(2026, 9, 16, sh, sm), End: at(2026, 9, 16, eh, em)}
 }
 
-func TestTimelineWindow_DefaultsToSevenToNineteen(t *testing.T) {
+func assertWindow(t *testing.T, events []Event, sh, eh int) {
+	t.Helper()
 	day, _ := wednesday()
-	start, end := timelineWindow(nil, day)
-	if !start.Equal(at(2026, 9, 16, 7, 0)) || !end.Equal(at(2026, 9, 16, 19, 0)) {
-		t.Errorf("window = %v - %v, want 07:00-19:00", start, end)
+	start, end := timelineWindow(events, day)
+	if !start.Equal(at(2026, 9, 16, sh, 0)) || !end.Equal(at(2026, 9, 16, eh, 0)) {
+		t.Errorf("window = %s - %s, want %02d:00-%02d:00", start.Format("15:04"), end.Format("15:04"), sh, eh)
 	}
 }
 
-func TestTimelineWindow_StretchesToWholeHoursAroundEvents(t *testing.T) {
-	day, _ := wednesday()
-	events := []Event{timed("early", 6, 15, 6, 45), timed("late", 18, 30, 20, 10)}
-	start, end := timelineWindow(events, day)
-	if !start.Equal(at(2026, 9, 16, 6, 0)) {
-		t.Errorf("start = %v, want 06:00", start)
-	}
-	if !end.Equal(at(2026, 9, 16, 21, 0)) {
-		t.Errorf("end = %v, want 21:00", end)
-	}
+func TestTimelineWindow_DefaultsToSevenToNineteen(t *testing.T) {
+	assertWindow(t, nil, 7, 19)
+}
+
+func TestTimelineWindow_CoversAllEventsOnWholeHours(t *testing.T) {
+	assertWindow(t, []Event{timed("early", 6, 15, 6, 45), timed("late", 18, 30, 20, 10)}, 6, 21)
+}
+
+func TestTimelineWindow_FitsTheDayWithAnEightHourMinimum(t *testing.T) {
+	// An afternoon of meetings: the window grows backwards from the evening edge.
+	assertWindow(t, []Event{timed("a", 15, 30, 16, 30), timed("b", 17, 30, 18, 20)}, 11, 19)
+	// A morning: it grows towards the evening first.
+	assertWindow(t, []Event{timed("a", 7, 0, 9, 0)}, 7, 15)
+	// Late events: nothing to grow after them, so it grows backwards.
+	assertWindow(t, []Event{timed("a", 20, 0, 21, 0)}, 13, 21)
+	// One midday event: evening first, then the rest backwards.
+	assertWindow(t, []Event{timed("a", 12, 0, 12, 30)}, 11, 19)
 }
 
 func TestTimelineWindow_ClampsToTheDayAndIgnoresAllDay(t *testing.T) {
@@ -42,10 +50,7 @@ func TestTimelineWindow_ClampsToTheDayAndIgnoresAllDay(t *testing.T) {
 	if !start.Equal(day) || !end.Equal(next) {
 		t.Errorf("window = %v - %v, want the whole day", start, end)
 	}
-	start, end = timelineWindow(events[1:], day)
-	if !start.Equal(at(2026, 9, 16, 7, 0)) || !end.Equal(at(2026, 9, 16, 19, 0)) {
-		t.Errorf("all-day only: window = %v - %v, want the default", start, end)
-	}
+	assertWindow(t, events[1:], 7, 19)
 }
 
 func cols(t *testing.T, blocks []block, uid string) (col, n int) {
@@ -60,7 +65,7 @@ func cols(t *testing.T, blocks []block, uid string) (col, n int) {
 }
 
 func TestLayoutColumns_TouchingEventsShareNoColumns(t *testing.T) {
-	blocks := layoutColumns([]Event{timed("a", 9, 0, 10, 0), timed("b", 10, 0, 11, 0)}, 45*time.Minute)
+	blocks := layoutColumns([]Event{timed("a", 9, 0, 10, 0), timed("b", 10, 0, 11, 0)})
 	for _, uid := range []string{"a", "b"} {
 		if col, n := cols(t, blocks, uid); col != 0 || n != 1 {
 			t.Errorf("%s: col %d of %d, want 0 of 1", uid, col, n)
@@ -69,7 +74,7 @@ func TestLayoutColumns_TouchingEventsShareNoColumns(t *testing.T) {
 }
 
 func TestLayoutColumns_OverlappingEventsSplitTheWidth(t *testing.T) {
-	blocks := layoutColumns([]Event{timed("b", 9, 30, 10, 30), timed("a", 9, 0, 10, 0)}, time.Minute)
+	blocks := layoutColumns([]Event{timed("b", 9, 30, 10, 30), timed("a", 9, 0, 10, 0)})
 	if col, n := cols(t, blocks, "a"); col != 0 || n != 2 {
 		t.Errorf("a: col %d of %d, want 0 of 2", col, n)
 	}
@@ -79,14 +84,14 @@ func TestLayoutColumns_OverlappingEventsSplitTheWidth(t *testing.T) {
 }
 
 func TestLayoutColumns_ReusesFreedColumnWithinCluster(t *testing.T) {
-	blocks := layoutColumns([]Event{timed("a", 9, 0, 10, 0), timed("b", 9, 30, 11, 0), timed("c", 10, 0, 10, 30)}, time.Minute)
+	blocks := layoutColumns([]Event{timed("a", 9, 0, 10, 0), timed("b", 9, 30, 11, 0), timed("c", 10, 0, 10, 30)})
 	if col, n := cols(t, blocks, "c"); col != 0 || n != 2 {
 		t.Errorf("c: col %d of %d, want 0 of 2 (a's column is free)", col, n)
 	}
 }
 
 func TestLayoutColumns_SeparateClustersAreIndependent(t *testing.T) {
-	blocks := layoutColumns([]Event{timed("a", 9, 0, 10, 0), timed("b", 9, 0, 10, 0), timed("c", 14, 0, 15, 0)}, time.Minute)
+	blocks := layoutColumns([]Event{timed("a", 9, 0, 10, 0), timed("b", 9, 0, 10, 0), timed("c", 14, 0, 15, 0)})
 	if _, n := cols(t, blocks, "a"); n != 2 {
 		t.Errorf("a: %d columns, want 2", n)
 	}
@@ -96,62 +101,75 @@ func TestLayoutColumns_SeparateClustersAreIndependent(t *testing.T) {
 }
 
 func TestLayoutColumns_ZeroLengthEventStillOccupiesAColumn(t *testing.T) {
-	blocks := layoutColumns([]Event{timed("a", 9, 0, 10, 0), timed("ping", 9, 30, 9, 30)}, 0)
+	blocks := layoutColumns([]Event{timed("a", 9, 0, 10, 0), timed("ping", 9, 30, 9, 30)})
 	if _, n := cols(t, blocks, "ping"); n != 2 {
 		t.Errorf("ping: %d columns, want 2", n)
 	}
 }
 
-func TestLayoutColumns_ShortEventKeepsItsMinimumHeightClear(t *testing.T) {
-	// A 15-minute standup drawn at its minimum block height would run into a
-	// meeting starting 15 minutes later, so the two must share the width.
-	blocks := layoutColumns([]Event{timed("standup", 9, 30, 9, 45), timed("meeting", 10, 0, 11, 0)}, 45*time.Minute)
-	if col, n := cols(t, blocks, "standup"); col != 0 || n != 2 {
-		t.Errorf("standup: col %d of %d, want 0 of 2", col, n)
+// twelveHourGrid is the scale of a 07:00-19:00 window on the real grid.
+func twelveHourGrid() gridScale {
+	return gridScale{winStart: at(2026, 9, 16, 7, 0), pxPerHour: float64(tlGridBottom-tlGridTop) / 12, top: tlGridTop, bottom: tlGridBottom}
+}
+
+func TestPlaceBlocks_UsesNaturalPositionsWhenThereIsRoom(t *testing.T) {
+	g := gridScale{winStart: at(2026, 9, 16, 7, 0), pxPerHour: 40, top: 100, bottom: 500}
+	got := placeBlocks(layoutColumns([]Event{timed("a", 9, 0, 10, 0), timed("b", 10, 0, 11, 0)}), g, 19, 80, 700)
+	if len(got) != 2 {
+		t.Fatalf("placed %d blocks, want 2", len(got))
 	}
-	if col, n := cols(t, blocks, "meeting"); col != 1 || n != 2 {
-		t.Errorf("meeting: col %d of %d, want 1 of 2", col, n)
+	a, b := got[0].rect, got[1].rect
+	if a.Min.Y != 180 || a.Max.Y != 220 || b.Min.Y != 220 || b.Max.Y != 260 {
+		t.Errorf("rects a=%v b=%v, want 180-220 and 220-260", a, b)
 	}
-	// With room to spare they stack as usual.
-	blocks = layoutColumns([]Event{timed("standup", 9, 30, 9, 45), timed("meeting", 10, 0, 11, 0)}, 10*time.Minute)
-	if _, n := cols(t, blocks, "meeting"); n != 1 {
-		t.Errorf("meeting: %d columns, want 1", n)
+	if a.Min.X != 80+tlBlockGap || a.Max.X != 780-tlBlockGap {
+		t.Errorf("a spans x %d-%d, want the full width minus the gap", a.Min.X, a.Max.X)
 	}
 }
 
-func TestBlockMetrics_ScaleWithTheHourGrid(t *testing.T) {
-	// Twelve visible hours: a 30-minute slot is about 14px, so single-line
-	// text shrinks to 11px and the minimum block stays inside the slot.
-	size, minH := blockMetrics(float64(tlGridBottom-tlGridTop) / 12)
-	if size != 11 || minH != 14 {
-		t.Errorf("12h grid: size %v, minH %d, want 11 and 14", size, minH)
+func TestPlaceBlocks_PushesTheNextBlockBelowAShortOne(t *testing.T) {
+	// On a 12-hour grid a 20-minute standup is 10px tall; drawn at the 19px
+	// minimum it runs into the meeting ten minutes later, which moves down.
+	g := twelveHourGrid()
+	got := placeBlocks(layoutColumns([]Event{timed("standup", 17, 30, 17, 50), timed("leads", 18, 0, 18, 20)}), g, 19, 82, 698)
+	standup, leads := got[0].rect, got[1].rect
+	if standup.Min.Y != g.y(at(2026, 9, 16, 17, 30)) || standup.Dy() != 19 {
+		t.Errorf("standup rect = %v, want 19px tall at its natural top", standup)
 	}
-	// A short window leaves room for the full-size text.
-	size, minH = blockMetrics(float64(tlGridBottom-tlGridTop) / 6)
-	if size != 16 || minH != 19 {
-		t.Errorf("6h grid: size %v, minH %d, want 16 and 19", size, minH)
+	if leads.Min.Y != standup.Max.Y || leads.Dy() != 19 {
+		t.Errorf("leads rect = %v, want 19px tall starting at the standup's bottom %d", leads, standup.Max.Y)
 	}
 }
 
-func TestLineSizeFor_GrowsWithBlockHeight(t *testing.T) {
-	cases := map[int]float64{14: 11, 10: 11, 17: 14, 28: 16, 60: 16}
-	for height, want := range cases {
-		if got := lineSizeFor(height); got != want {
-			t.Errorf("lineSizeFor(%d) = %v, want %v", height, got, want)
+func TestPlaceBlocks_ChainOfShortMeetingsStacksInOrder(t *testing.T) {
+	g := twelveHourGrid()
+	events := []Event{timed("a", 9, 0, 9, 15), timed("b", 9, 15, 9, 30), timed("c", 9, 30, 9, 45)}
+	got := placeBlocks(layoutColumns(events), g, 19, 82, 698)
+	for i := 1; i < len(got); i++ {
+		if got[i].rect.Min.Y != got[i-1].rect.Max.Y {
+			t.Errorf("block %s starts at %d, want %d (bottom of the previous one)", got[i].UID, got[i].rect.Min.Y, got[i-1].rect.Max.Y)
 		}
 	}
 }
 
-func TestMinBlockDuration_LetsShortConsecutiveMeetingsStack(t *testing.T) {
-	pxPerHour := float64(tlGridBottom-tlGridTop) / 12
-	if d := minBlockDuration(pxPerHour); d >= 30*time.Minute {
-		t.Errorf("minimum block spans %v on a 12h grid, want under 30m so half-hour slots stack", d)
+func TestPlaceBlocks_SideBySideBlocksDoNotPushEachOther(t *testing.T) {
+	g := twelveHourGrid()
+	got := placeBlocks(layoutColumns([]Event{timed("a", 9, 0, 9, 10), timed("b", 9, 5, 10, 0)}), g, 19, 82, 698)
+	a, b := got[0].rect, got[1].rect
+	if a.Max.X > b.Min.X {
+		t.Errorf("a %v and b %v should sit side by side", a, b)
 	}
-	// A 20-minute standup followed ten minutes later by the next meeting
-	// must stack, not sit side by side.
-	blocks := layoutColumns([]Event{timed("standup", 17, 30, 17, 50), timed("leads", 18, 0, 18, 20)}, minBlockDuration(pxPerHour))
-	if _, n := cols(t, blocks, "leads"); n != 1 {
-		t.Errorf("leads: %d columns, want 1", n)
+	if b.Min.Y != g.y(at(2026, 9, 16, 9, 5)) {
+		t.Errorf("b top = %d, want its natural position %d", b.Min.Y, g.y(at(2026, 9, 16, 9, 5)))
+	}
+}
+
+func TestPlaceBlocks_ClampsToTheGridBottom(t *testing.T) {
+	g := twelveHourGrid() // bottom row is 19:00
+	got := placeBlocks(layoutColumns([]Event{timed("late", 18, 50, 19, 10)}), g, 19, 82, 698)
+	r := got[0].rect
+	if r.Max.Y != g.bottom || r.Dy() != 19 {
+		t.Errorf("rect = %v, want 19px ending at the grid bottom %d", r, g.bottom)
 	}
 }
 

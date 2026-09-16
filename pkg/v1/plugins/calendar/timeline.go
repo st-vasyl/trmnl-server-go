@@ -32,21 +32,22 @@ const (
 
 	tlBlockTitleSize = 18
 	tlBlockTimeSize  = 14
-	tlBlockLineSize  = 16 // largest single-line text; see blockMetrics
-	tlBlockLineMin   = 11 // smallest single-line text that stays legible
+	tlBlockLineSize  = 16 // single-line blocks
 	tlBlockPad       = 6
 	tlBlockBar       = 4  // solid bar on the block's left edge
 	tlBlockGap       = 3  // space between neighbouring blocks
+	tlMinBlockH      = 19 // room for one line at tlBlockLineSize
 	tlTwoLineH       = 40 // blocks at least this tall get time and title lines
 	tlDither         = 3  // dot spacing of the block fill
 
 	tlFooterSize     = 16
 	tlFooterBaseline = 472
 
-	// The grid always shows at least these hours; it stretches to include
-	// earlier or later events.
+	// An empty day shows these hours. Otherwise the grid fits the day's
+	// events, never narrower than tlMinWindowHours.
 	defaultDayStartHour = 7
 	defaultDayEndHour   = 19
+	tlMinWindowHours    = 8
 )
 
 // block is a timed event placed in column col of cols within its overlap
@@ -56,75 +57,75 @@ type block struct {
 	col, cols int
 }
 
-// blockMetrics derives the single-line text size and the minimum block height
-// from the hour scale, so that a 30-minute event drawn at its natural height
-// still holds a line of text. Twelve visible hours give 11px text; six give
-// the full 16px.
-func blockMetrics(pxPerHour float64) (lineSize float64, minH int) {
-	slot := math.Round(pxPerHour / 2)
-	lineSize = math.Min(math.Max(slot-3, tlBlockLineMin), tlBlockLineSize)
-	return lineSize, int(lineSize) + 3
+// placed is a block with its rectangle on the grid.
+type placed struct {
+	block
+	rect image.Rectangle
 }
 
-// lineSizeFor picks the single-line text size a block of the given height
-// can hold, between the legible minimum and the full size.
-func lineSizeFor(height int) float64 {
-	return math.Min(math.Max(float64(height)-3, tlBlockLineMin), tlBlockLineSize)
+// gridScale maps instants to grid rows.
+type gridScale struct {
+	winStart    time.Time
+	pxPerHour   float64
+	top, bottom int
 }
 
-// minBlockDuration is the span a block of minimum height covers on the grid;
-// events hold their column for at least this long (see layoutColumns).
-func minBlockDuration(pxPerHour float64) time.Duration {
-	_, minH := blockMetrics(pxPerHour)
-	return time.Duration(float64(minH) / pxPerHour * float64(time.Hour))
+func (g gridScale) y(t time.Time) int {
+	return g.top + int(math.Round(t.Sub(g.winStart).Hours()*g.pxPerHour))
 }
 
-// timelineWindow returns the hour-aligned span of the grid for day: the
-// default hours, widened to whole hours around any timed event and clamped to
-// the day itself.
+// timelineWindow returns the hour-aligned span of the grid for day. With no
+// timed events it is the default hours. Otherwise it runs from the first
+// event to the last, widened to at least tlMinWindowHours: first towards the
+// default evening edge, then backwards, then forwards; always within the day.
 func timelineWindow(events []Event, day time.Time) (start, end time.Time) {
 	loc := day.Location()
 	next := day.AddDate(0, 0, 1)
 	hour := func(h int) time.Time {
 		return time.Date(day.Year(), day.Month(), day.Day(), h, 0, 0, 0, loc)
 	}
-	start, end = hour(defaultDayStartHour), hour(defaultDayEndHour)
+
+	first, last := 24, 0
 	for _, e := range events {
 		if e.AllDay {
 			continue
 		}
-		if e.Start.Before(start) {
-			if e.Start.Before(day) {
-				start = day
-			} else {
-				start = hour(e.Start.In(loc).Hour())
+		s := 0
+		if e.Start.After(day) {
+			s = e.Start.In(loc).Hour()
+		}
+		en := 24
+		if e.End.Before(next) {
+			t := e.End.In(loc)
+			en = t.Hour()
+			if hour(en).Before(t) {
+				en++
 			}
 		}
-		if e.End.After(end) {
-			if !e.End.Before(next) {
-				end = next
-			} else {
-				h := e.End.In(loc)
-				end = hour(h.Hour())
-				if end.Before(h) {
-					end = hour(h.Hour() + 1)
-				}
-			}
-		}
+		first, last = min(first, s), max(last, en)
 	}
-	return start, end
+	if first >= last {
+		return hour(defaultDayStartHour), hour(defaultDayEndHour)
+	}
+
+	if need := tlMinWindowHours - (last - first); need > 0 {
+		grow := min(need, max(defaultDayEndHour-last, 0))
+		last += grow
+		need -= grow
+		grow = min(need, first)
+		first -= grow
+		need -= grow
+		last = min(last+need, 24)
+	}
+	return hour(first), hour(last)
 }
 
 // layoutColumns assigns overlapping timed events to side-by-side columns.
 // Events are processed by start time; each one takes the first column that is
 // free by then, and every event of an overlap cluster is told how many columns
-// the cluster used so widths can be divided evenly. Every event holds its
-// column for at least minDur, the span its minimum block height covers on
-// screen, so a short event is never drawn under the one that follows it.
-func layoutColumns(events []Event, minDur time.Duration) []block {
-	if minDur < time.Minute {
-		minDur = time.Minute
-	}
+// the cluster used so widths can be divided evenly. A zero-length event holds
+// its column for a minute so it still gets a slot.
+func layoutColumns(events []Event) []block {
 	sorted := append([]Event(nil), events...)
 	sort.SliceStable(sorted, func(i, j int) bool {
 		if !sorted[i].Start.Equal(sorted[j].Start) {
@@ -147,8 +148,8 @@ func layoutColumns(events []Event, minDur time.Duration) []block {
 	}
 	for _, e := range sorted {
 		end := e.End
-		if floor := e.Start.Add(minDur); end.Before(floor) {
-			end = floor
+		if !end.After(e.Start) {
+			end = e.Start.Add(time.Minute)
 		}
 		if len(colEnds) > 0 && !e.Start.Before(clusterEnd) {
 			flush()
@@ -170,6 +171,36 @@ func layoutColumns(events []Event, minDur time.Duration) []block {
 		out = append(out, block{Event: e, col: col})
 	}
 	flush()
+	return out
+}
+
+// placeBlocks turns laid-out blocks (in start order) into rectangles on the
+// grid between x0 and x0+width. Every block is at least minH tall; when that
+// overflows into a later block sharing its horizontal span, the later block
+// moves down by the difference, so consecutive short meetings stay stacked
+// and readable at the cost of sitting a few pixels below their true time.
+func placeBlocks(blocks []block, g gridScale, minH, x0, width int) []placed {
+	out := make([]placed, 0, len(blocks))
+	for _, b := range blocks {
+		colW := width / b.cols
+		x := image.Rect(x0+b.col*colW+tlBlockGap, 0, x0+(b.col+1)*colW-tlBlockGap, 1)
+
+		y0 := max(g.y(b.Start), g.top)
+		y1 := min(g.y(b.End), g.bottom)
+		for _, p := range out {
+			if p.rect.Min.X < x.Max.X && x.Min.X < p.rect.Max.X && p.rect.Max.Y > y0 {
+				y0 = p.rect.Max.Y
+			}
+		}
+		if y1 < y0+minH {
+			y1 = y0 + minH
+		}
+		if y1 > g.bottom {
+			y1 = g.bottom
+			y0 = min(y0, y1-minH)
+		}
+		out = append(out, placed{block: b, rect: image.Rect(x.Min.X, y0, x.Max.X, y1)})
+	}
 	return out
 }
 
@@ -208,9 +239,11 @@ func renderTimeline(v dayView, outputPath string, voltage float32) error {
 
 	// Hour grid: a rule between labels and grid, a dotted line per hour.
 	winStart, winEnd := timelineWindow(timed, v.Day)
-	pxPerHour := float64(tlGridBottom-tlGridTop) / winEnd.Sub(winStart).Hours()
-	yOf := func(t time.Time) int {
-		return tlGridTop + int(math.Round(t.Sub(winStart).Hours()*pxPerHour))
+	g := gridScale{
+		winStart:  winStart,
+		pxPerHour: float64(tlGridBottom-tlGridTop) / winEnd.Sub(winStart).Hours(),
+		top:       tlGridTop,
+		bottom:    tlGridBottom,
 	}
 	draw.Draw(img, image.Rect(gridX0-4, tlGridTop, gridX0-3, tlGridBottom+1), image.Black, image.Point{}, draw.Src)
 	loc := v.Day.Location()
@@ -219,7 +252,7 @@ func renderTimeline(v dayView, outputPath string, voltage float32) error {
 		if t.After(winEnd) {
 			break
 		}
-		y := yOf(t)
+		y := g.y(t)
 		render.AddDottedLine(img, gridX0, gridX1, y, 3)
 		label := fmt.Sprintf("%d:00", h)
 		w, err := render.TextWidth(label, tlLabelSize)
@@ -231,32 +264,9 @@ func renderTimeline(v dayView, outputPath string, voltage float32) error {
 		}
 	}
 
-	// Event blocks. Text size and minimum height follow the hour scale, and
-	// the minimum height, expressed as time, decides when neighbouring events
-	// must share the width instead of stacking.
-	gridW := gridX1 - gridX0
-	_, minH := blockMetrics(pxPerHour)
-	for _, b := range layoutColumns(timed, minBlockDuration(pxPerHour)) {
-		s, e := b.Start, b.End
-		if s.Before(winStart) {
-			s = winStart
-		}
-		if e.After(winEnd) {
-			e = winEnd
-		}
-		y0, y1 := yOf(s), yOf(e)
-		if y1 < y0+minH {
-			y1 = y0 + minH
-		}
-		if y1 > tlGridBottom {
-			y1 = tlGridBottom
-			if y0 > y1-minH {
-				y0 = y1 - minH
-			}
-		}
-		colW := gridW / b.cols
-		r := image.Rect(gridX0+b.col*colW+tlBlockGap, y0, gridX0+(b.col+1)*colW-tlBlockGap, y1)
-		if err := drawBlock(img, b.Event, r, from, to, v.ShowTags); err != nil {
+	// Event blocks.
+	for _, p := range placeBlocks(layoutColumns(timed), g, tlMinBlockH, gridX0, gridX1-gridX0) {
+		if err := drawBlock(img, p.Event, p.rect, from, to, v.ShowTags); err != nil {
 			return err
 		}
 	}
@@ -314,8 +324,7 @@ func drawAllDayBlocks(img *image.RGBA, events []Event, x0, x1, y0, y1 int, showT
 }
 
 // drawBlock draws one timed event: a tall block gets the time span on the
-// first line and the title on the second; a short one gets both on one line
-// sized to the block's height.
+// first line and the title on the second; a short one gets both on one line.
 func drawBlock(img *image.RGBA, e Event, r image.Rectangle, from, to time.Time, showTag bool) error {
 	fillBlock(img, r)
 	span := timeLabel(e, from, to)
@@ -326,13 +335,12 @@ func drawBlock(img *image.RGBA, e Event, r image.Rectangle, from, to time.Time, 
 		}
 		return blockLine(img, r, title, tlBlockTitleSize, r.Min.Y+tlBlockTimeSize+tlBlockTitleSize+8)
 	}
-	lineSize := lineSizeFor(r.Dy())
 	maxW := r.Max.X - tlBlockPad - (r.Min.X + tlBlockBar + tlBlockPad)
-	line, err := oneLineText(span, title, lineSize, maxW)
+	line, err := oneLineText(span, title, tlBlockLineSize, maxW)
 	if err != nil {
 		return err
 	}
-	return blockLine(img, r, line, lineSize, r.Min.Y+int(lineSize)+1)
+	return blockLine(img, r, line, tlBlockLineSize, r.Min.Y+tlBlockLineSize+1)
 }
 
 // oneLineText is the text of a single-line block: the time span and title

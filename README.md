@@ -148,9 +148,10 @@ than one feed is configured. Recurring events, moved or cancelled occurrences, m
 feeds in other time zones are all handled. Invitations you declined are left out (Google keeps them in the feed
 but hides them in its own UI), and symbols the text font cannot draw, such as emoji, are dropped from titles.
 
-Two layouts are available. `timeline` (the default) draws the day as an hour grid, 07:00–19:00 by default and
-stretched to cover earlier or later events, with an all-day strip on top and overlapping events placed side by
-side. `list` shows one row per event, all-day events first, which fits more on a very busy day.
+Two layouts are available. `timeline` (the default) draws the day as an hour grid fitted to the day's events
+(never narrower than 8 hours; 07:00–19:00 on an empty day), with an all-day strip on top and overlapping events
+placed side by side. Short meetings keep a readable block and nudge the next one down a few pixels rather than
+shrinking. `list` shows one row per event, all-day events first, which fits more on a very busy day.
 
 - **Apple / iCloud** — in Calendar on a Mac, right-click the calendar → *Sharing Settings…* → tick *Public Calendar*
   and copy the `webcal://` link (on iPhone: *Calendars* → ⓘ next to the calendar → *Public Calendar*). Paste it

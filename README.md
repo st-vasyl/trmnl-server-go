@@ -10,7 +10,7 @@ You can run it either as binary or docker container on your local machine or rou
   - `weather` — current conditions and forecast (Open-Meteo, no API key)
   - `twelvedata` — stock quote with change, day and 52-week range, and a 7-day close-price chart (TwelveData, Free API key required)
   - `coingecko` — 24h crypto price chart (CoinGecko, no API key)
-  - `currency` — exchange rates, 4 pairs per screen with daily change and 30-day trend (Frankfurter / ECB, no API key)
+  - `currency` — exchange rates, 4 pairs per screen with daily change and 30-day trend (Frankfurter, 165 currencies including UAH, no API key)
   - `calendar` — today's agenda merged from any number of iCalendar feeds: Apple/iCloud public calendar links, Google Calendar secret addresses, Outlook, Nextcloud or any `.ics` URL (no API key, no OAuth)
 - **Self-contained** — SQLite for storage, no external database or message broker
 - **Auto-provisioned assets** — fonts and icons (both from Google Fonts) are downloaded on first run and cached locally
@@ -137,8 +137,9 @@ Only the plugins you list in `enabled_plugins` need a config block.
 | `calendar`   | `timezone`, `layout`, `calendars` | IANA zone that defines "today" (e.g. `Europe/Warsaw`; defaults to the server's local zone), the screen `layout` (`timeline`, the default hour grid, or `list`, one row per event) and a list of feeds, each with a `name` (shown as a tag) and an ICS `url` (`https://` or `webcal://`). |
 
 Currency pairs read as "1 unit of the first currency in the second", so `EUR/PLN` shows how many PLN one EUR buys.
-Rates are ECB reference rates (about 30 major currencies), updated once per working day. An unknown code or more
-than four pairs on a screen stops the server at startup with a clear error.
+Rates come from the Frankfurter v2 API, which blends about a hundred central banks into daily rates for 165
+currencies, so codes the ECB never published (UAH, GEL, KZT, …) work too. An unknown code or more than four pairs
+on a screen stops the server at startup with a clear error.
 
 #### Calendar feeds
 

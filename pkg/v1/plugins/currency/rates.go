@@ -14,15 +14,29 @@ import (
 // baseURL is the Frankfurter API root. Overridden in tests.
 var baseURL = "https://api.frankfurter.dev"
 
-// series is the Frankfurter time-series response, indexed rates[date][code].
+// series holds EUR-based rates indexed rates[date][code].
 type series struct {
-	Base    string                        `json:"base"`
-	Rates   map[string]map[string]float64 `json:"rates"`
-	Message string                        `json:"message"` // set on API errors such as "not found"
+	Base  string
+	Rates map[string]map[string]float64
+}
+
+// rateRow is one element of a Frankfurter v2 rates response, which is a flat
+// list with one row per date and quote currency.
+type rateRow struct {
+	Date  string  `json:"date"`
+	Base  string  `json:"base"`
+	Quote string  `json:"quote"`
+	Rate  float64 `json:"rate"`
+}
+
+// apiError is the body Frankfurter returns instead of rows, for example
+// {"status":422,"message":"invalid currency: XXX"}.
+type apiError struct {
+	Message string `json:"message"`
 }
 
 // screenCurrencies lists the non-EUR codes a screen needs, sorted and unique.
-// EUR is the request base, so it never appears in the symbols parameter.
+// EUR is the request base, so it never appears in the quotes parameter.
 func screenCurrencies(pairs []Pair) []string {
 	seen := map[string]bool{}
 	var codes []string
@@ -40,26 +54,40 @@ func screenCurrencies(pairs []Pair) []string {
 }
 
 // fetchSeries downloads EUR-based daily rates for codes between from and to,
-// inclusive by calendar date.
+// inclusive by calendar date, from the Frankfurter v2 API.
 func fetchSeries(codes []string, from, to time.Time) (series, error) {
-	var s series
-	url := fmt.Sprintf("%s/v1/%s..%s?base=EUR&symbols=%s",
-		baseURL, from.Format("2006-01-02"), to.Format("2006-01-02"), strings.Join(codes, ","))
+	s := series{Base: "EUR"}
+	url := fmt.Sprintf("%s/v2/rates?base=EUR&quotes=%s&from=%s&to=%s",
+		baseURL, strings.Join(codes, ","), from.Format("2006-01-02"), to.Format("2006-01-02"))
 
 	body, err := httpclient.Get(url)
 	if err != nil {
 		log.Error().Str("plugin", pluginName).Err(err).Msg("Failed to fetch exchange rates")
 		return s, err
 	}
-	if err := json.Unmarshal(body, &s); err != nil {
+
+	var rows []rateRow
+	if err := json.Unmarshal(body, &rows); err != nil {
+		// Errors come back as an object with a message rather than a list.
+		var apiErr apiError
+		if json.Unmarshal(body, &apiErr) == nil && apiErr.Message != "" {
+			return s, fmt.Errorf("frankfurter: %s", apiErr.Message)
+		}
 		log.Error().Str("plugin", pluginName).Err(err).Msg("Failed to parse exchange rates")
 		return s, err
 	}
-	if s.Message != "" {
-		return s, fmt.Errorf("frankfurter: %s", s.Message)
-	}
-	if len(s.Rates) == 0 {
+	if len(rows) == 0 {
 		return s, fmt.Errorf("frankfurter: no rates returned")
+	}
+
+	s.Rates = make(map[string]map[string]float64)
+	for _, r := range rows {
+		day, ok := s.Rates[r.Date]
+		if !ok {
+			day = make(map[string]float64)
+			s.Rates[r.Date] = day
+		}
+		day[r.Quote] = r.Rate
 	}
 	return s, nil
 }

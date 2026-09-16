@@ -15,15 +15,34 @@ const (
 	trendDays = 30
 )
 
-// knownCurrencies is the set of ISO codes Frankfurter publishes (the ECB
-// reference rates). Validating against it at startup turns a typo in
-// config.yaml into an immediate error instead of an empty screen.
+// knownCurrencies is the set of ISO codes Frankfurter v2 currently publishes
+// (165 active currencies blended from about a hundred central banks; taken
+// from https://api.frankfurter.dev/v2/currencies on 2026-09-16). Validating
+// against it at startup turns a typo in config.yaml into an immediate error
+// instead of an empty screen. Regenerate from that endpoint when Frankfurter
+// adds a currency.
 var knownCurrencies = map[string]bool{
-	"AUD": true, "BRL": true, "CAD": true, "CHF": true, "CNY": true, "CZK": true,
-	"DKK": true, "EUR": true, "GBP": true, "HKD": true, "HUF": true, "IDR": true,
-	"ILS": true, "INR": true, "ISK": true, "JPY": true, "KRW": true, "MXN": true,
-	"MYR": true, "NOK": true, "NZD": true, "PHP": true, "PLN": true, "RON": true,
-	"SEK": true, "SGD": true, "THB": true, "TRY": true, "USD": true, "ZAR": true,
+	"AED": true, "AFN": true, "ALL": true, "AMD": true, "ANG": true, "AOA": true, "ARS": true, "AUD": true,
+	"AWG": true, "AZN": true, "BAM": true, "BBD": true, "BDT": true, "BHD": true, "BIF": true, "BMD": true,
+	"BND": true, "BOB": true, "BRL": true, "BSD": true, "BTN": true, "BWP": true, "BYN": true, "BZD": true,
+	"CAD": true, "CDF": true, "CHF": true, "CLP": true, "CNH": true, "CNY": true, "COP": true, "CRC": true,
+	"CUP": true, "CVE": true, "CZK": true, "DJF": true, "DKK": true, "DOP": true, "DZD": true, "EGP": true,
+	"ERN": true, "ETB": true, "EUR": true, "FJD": true, "FKP": true, "GBP": true, "GEL": true, "GGP": true,
+	"GHS": true, "GIP": true, "GMD": true, "GNF": true, "GTQ": true, "GYD": true, "HKD": true, "HNL": true,
+	"HTG": true, "HUF": true, "IDR": true, "ILS": true, "IMP": true, "INR": true, "IQD": true, "IRR": true,
+	"ISK": true, "JEP": true, "JMD": true, "JOD": true, "JPY": true, "KES": true, "KGS": true, "KHR": true,
+	"KMF": true, "KPW": true, "KRW": true, "KWD": true, "KYD": true, "KZT": true, "LAK": true, "LBP": true,
+	"LKR": true, "LRD": true, "LSL": true, "LYD": true, "MAD": true, "MDL": true, "MGA": true, "MKD": true,
+	"MMK": true, "MNT": true, "MOP": true, "MRO": true, "MRU": true, "MUR": true, "MVR": true, "MWK": true,
+	"MXN": true, "MYR": true, "MZN": true, "NAD": true, "NGN": true, "NIO": true, "NOK": true, "NPR": true,
+	"NZD": true, "OMR": true, "PAB": true, "PEN": true, "PGK": true, "PHP": true, "PKR": true, "PLN": true,
+	"PYG": true, "QAR": true, "RON": true, "RSD": true, "RUB": true, "RWF": true, "SAR": true, "SBD": true,
+	"SCR": true, "SDG": true, "SEK": true, "SGD": true, "SHP": true, "SLE": true, "SOS": true, "SRD": true,
+	"SSP": true, "STN": true, "SVC": true, "SYP": true, "SZL": true, "THB": true, "TJS": true, "TMT": true,
+	"TND": true, "TOP": true, "TRY": true, "TTD": true, "TWD": true, "TZS": true, "UAH": true, "UGX": true,
+	"USD": true, "UYU": true, "UZS": true, "VES": true, "VND": true, "VUV": true, "WST": true, "XAF": true,
+	"XAG": true, "XAU": true, "XCD": true, "XCG": true, "XDR": true, "XOF": true, "XPD": true, "XPF": true,
+	"XPT": true, "YER": true, "ZAR": true, "ZMW": true, "ZWG": true,
 }
 
 // Pair is one currency pair: Base priced in Quote, so EUR/PLN is the number

@@ -372,8 +372,8 @@ func TestRender_FetchFailureIsReturned(t *testing.T) {
 }
 
 // TestRender_WritesFullScreenPNG renders a real screen against a fake API.
-// It needs the repo-root font.ttf (untracked) for text; without it the test
-// skips. The icon font cache is seeded with the same TTF so no network is hit.
+// It needs the repo-root font.ttf for text; without it the test skips. The
+// icon font cache is seeded with the same TTF so no network is hit.
 func TestRender_WritesFullScreenPNG(t *testing.T) {
 	ttf, err := os.ReadFile("../../../../font.ttf")
 	if err != nil {

@@ -238,24 +238,6 @@ func TestAddChart_DrawsWithoutError(t *testing.T) {
 	}
 }
 
-func TestAddStocksChart_DrawsWithoutError(t *testing.T) {
-	img := NewImage(800, 480)
-	records := BoxPlotRecords{
-		BoxPlotRecord: []BoxPlotRecord{
-			{T: 0, Vmin: 100, Vmax: 105},
-			{T: 1, Vmin: 102, Vmax: 108},
-			{T: 2, Vmin: 101, Vmax: 107},
-		},
-		XLabels: map[float64]string{
-			0: "Mon",
-			2: "Wed",
-		},
-	}
-	if err := AddStocksChart(img, records, 400, 200, image.Point{0, 0}); err != nil {
-		t.Fatalf("AddStocksChart: %v", err)
-	}
-}
-
 func TestWriteFile_ProducesDecodablePNG(t *testing.T) {
 	img := NewImage(100, 60)
 	path := filepath.Join(t.TempDir(), "out.png")

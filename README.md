@@ -8,7 +8,7 @@ You can run it either as binary or docker container on your local machine or rou
 
 - **Built-in plugins**
   - `weather` — current conditions and forecast (Open-Meteo, no API key)
-  - `twelvedata` — 7-day stock OHLC chart (TwelveData, Free API key required)
+  - `twelvedata` — stock quote with change, day and 52-week range, and a 7-day close-price chart (TwelveData, Free API key required)
   - `coingecko` — 24h crypto price chart (CoinGecko, no API key)
   - `currency` — exchange rates, 4 pairs per screen with daily change and 30-day trend (Frankfurter / ECB, no API key)
 - **Self-contained** — SQLite for storage, no external database or message broker
@@ -21,7 +21,7 @@ Each enabled plugin renders an 800×480 screen for the device. Here's what the b
 
 | Weather | Stocks (TwelveData) | Crypto (CoinGecko) | Currency (Frankfurter) |
 |:---:|:---:|:---:|:---:|
-| ![Weather screen — current conditions and forecast](example/weather.png) | ![Stocks screen — AAPL 7-day OHLC chart](example/twelvedata_AAPL.png) | ![Crypto screen — Bitcoin 24h price chart](example/coingecko_bitcoin.png) | ![Currency screen — four PLN pairs with daily change and 30-day trend](example/currency.png) |
+| ![Weather screen — current conditions and forecast](example/weather.png) | ![Stocks screen — AAPL quote and 7-day close-price chart](example/twelvedata_AAPL.png) | ![Crypto screen — Bitcoin 24h price chart](example/coingecko_bitcoin.png) | ![Currency screen — four PLN pairs with daily change and 30-day trend](example/currency.png) |
 
 ## Requirements
 

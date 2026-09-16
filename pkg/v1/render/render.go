@@ -51,17 +51,8 @@ type ChartRecord struct {
 	V float64
 }
 
-type BoxPlotRecords struct {
-	BoxPlotRecord []BoxPlotRecord
-	XLabels       map[float64]string // sequential index → date label for X axis
-}
-
-type BoxPlotRecord struct {
-	T    float64 // sequential index, not a timestamp
-	Vmin float64
-	Vmax float64
-}
-
+// sparseTicks is a plot.Ticker that places a labelled major tick only at the
+// positions present in labels.
 type sparseTicks struct{ labels map[float64]string }
 
 func (s sparseTicks) Ticks(min, max float64) []plot.Tick {
@@ -173,49 +164,6 @@ func AddChart(img *image.RGBA, r ChartRecords, chartWidth, chartHeight int, poin
 		return err
 	}
 
-	draw.Draw(img, img.Bounds(), chart, point, draw.Over)
-	return nil
-}
-
-func AddStocksChart(img *image.RGBA, records BoxPlotRecords, chartWidth, chartHeight int, point image.Point) error {
-	p := plot.New()
-	if n := len(records.BoxPlotRecord); n > 0 {
-		p.X.Min = 0
-		p.X.Max = float64(n - 1)
-	}
-	if len(records.XLabels) > 0 {
-		p.X.Tick.Marker = sparseTicks{labels: records.XLabels}
-	}
-	p.Add(plotter.NewGrid())
-	var values []*plotter.BoxPlot
-
-	w := vg.Points(2)
-	for _, v := range records.BoxPlotRecord {
-		box := make(plotter.Values, 2)
-		box[0] = v.Vmin
-		box[1] = v.Vmax
-		b, err := plotter.NewBoxPlot(w, v.T, box)
-		if err != nil {
-			return err
-		}
-
-		values = append(values, b)
-		p.Add(b)
-	}
-
-	// p.Add(values)
-
-	buf := bytes.NewBuffer(nil)
-	writerTo, err := p.WriterTo(vg.Points(float64(chartWidth)), vg.Points(float64(chartHeight)), "png")
-	if err != nil {
-		return err
-	}
-	writerTo.WriteTo(buf)
-
-	chart, _, err := image.Decode(buf)
-	if err != nil {
-		return err
-	}
 	draw.Draw(img, img.Bounds(), chart, point, draw.Over)
 	return nil
 }

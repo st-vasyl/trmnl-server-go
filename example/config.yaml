@@ -6,7 +6,7 @@ common:
   update_time: 3600
   debug: false
   font_name: "Anonymous Pro"
-  enabled_plugins: ["weather", "twelvedata", "coingecko"]
+  enabled_plugins: ["weather", "twelvedata", "coingecko", "currency"]
 
 plugins:
   twelvedata:
@@ -16,3 +16,7 @@ plugins:
     symbols: ["bitcoin"]
   weather:
     location: Kyiv
+  currency:
+    screens:
+      - pairs: ["EUR/PLN", "USD/PLN", "GBP/PLN", "CHF/PLN"]
+      - pairs: ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF"]

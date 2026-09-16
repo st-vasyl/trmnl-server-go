@@ -98,6 +98,36 @@ func TestGetConfig_MalformedYAMLReturnsError(t *testing.T) {
 	}
 }
 
+const currencyYAML = `
+common:
+  enabled_plugins: ["currency"]
+plugins:
+  currency:
+    screens:
+      - pairs: ["EUR/PLN", "USD/PLN", "GBP/PLN", "CHF/PLN"]
+      - pairs: ["EUR/USD", "USD/JPY"]
+`
+
+func TestGetConfig_ParsesCurrencyScreens(t *testing.T) {
+	path := writeTempFile(t, "config.yaml", currencyYAML)
+
+	c, err := GetConfig(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	screens := c.Plugins.Currency.Screens
+	if len(screens) != 2 {
+		t.Fatalf("Currency.Screens len = %d, want 2", len(screens))
+	}
+	if got, want := screens[0].Pairs, []string{"EUR/PLN", "USD/PLN", "GBP/PLN", "CHF/PLN"}; !equalStrings(got, want) {
+		t.Errorf("Screens[0].Pairs = %v, want %v", got, want)
+	}
+	if got, want := screens[1].Pairs, []string{"EUR/USD", "USD/JPY"}; !equalStrings(got, want) {
+		t.Errorf("Screens[1].Pairs = %v, want %v", got, want)
+	}
+}
+
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

@@ -42,6 +42,7 @@ type Plugins struct {
 	Twelvedata Twelvedata `yaml:"twelvedata"`
 	Coingecko  Coingecko  `yaml:"coingecko"`
 	Weather    Weather    `yaml:"weather"`
+	Currency   Currency   `yaml:"currency"`
 }
 
 type Twelvedata struct {
@@ -55,6 +56,17 @@ type Coingecko struct {
 
 type Weather struct {
 	Location string `yaml:"location"`
+}
+
+// Currency lists the screens of the currency plugin. Each screen becomes one
+// rendered image in the device rotation.
+type Currency struct {
+	Screens []CurrencyScreen `yaml:"screens"`
+}
+
+// CurrencyScreen holds up to four pairs such as "EUR/PLN".
+type CurrencyScreen struct {
+	Pairs []string `yaml:"pairs"`
 }
 
 func GetConfig(filename string) (Config, error) {

@@ -10,6 +10,7 @@ You can run it either as binary or docker container on your local machine or rou
   - `weather` — current conditions and forecast (Open-Meteo, no API key)
   - `twelvedata` — 7-day stock OHLC chart (TwelveData, Free API key required)
   - `coingecko` — 24h crypto price chart (CoinGecko, no API key)
+  - `currency` — exchange rates, 4 pairs per screen with daily change and 30-day trend (Frankfurter / ECB, no API key)
 - **Self-contained** — SQLite for storage, no external database or message broker
 - **Auto-provisioned assets** — fonts and icons (both from Google Fonts) are downloaded on first run and cached locally
 - **Auto-plugin rotation** — each device cycles through the plugins you enable
@@ -18,9 +19,9 @@ You can run it either as binary or docker container on your local machine or rou
 
 Each enabled plugin renders an 800×480 screen for the device. Here's what the built-in plugins produce:
 
-| Weather | Stocks (TwelveData) | Crypto (CoinGecko) |
-|:---:|:---:|:---:|
-| ![Weather screen — current conditions and forecast](example/weather.png) | ![Stocks screen — AAPL 7-day OHLC chart](example/twelvedata_AAPL.png) | ![Crypto screen — Bitcoin 24h price chart](example/coingecko_bitcoin.png) |
+| Weather | Stocks (TwelveData) | Crypto (CoinGecko) | Currency (Frankfurter) |
+|:---:|:---:|:---:|:---:|
+| ![Weather screen — current conditions and forecast](example/weather.png) | ![Stocks screen — AAPL 7-day OHLC chart](example/twelvedata_AAPL.png) | ![Crypto screen — Bitcoin 24h price chart](example/coingecko_bitcoin.png) | ![Currency screen — four PLN pairs with daily change and 30-day trend](example/currency.png) |
 
 ## Requirements
 
@@ -131,6 +132,11 @@ Only the plugins you list in `enabled_plugins` need a config block.
 | `twelvedata` | `symbols`            | Ticker symbols, e.g. `["googl", "nvda"]`.|
 | `coingecko`  | `symbols`            | Coin IDs, e.g. `["bitcoin"]`.            |
 | `weather`    | `location`           | City name, e.g. `Wroclaw`.               |
+| `currency`   | `screens`            | List of screens, each with `pairs` of 1–4 currency pairs like `EUR/PLN`. Screens rotate as `currency_1`, `currency_2`, … |
+
+Currency pairs read as "1 unit of the first currency in the second", so `EUR/PLN` shows how many PLN one EUR buys.
+Rates are ECB reference rates (about 30 major currencies), updated once per working day. An unknown code or more
+than four pairs on a screen stops the server at startup with a clear error.
 
 Example:
 
@@ -143,7 +149,7 @@ common:
   update_time: 3600
   debug: false
   font_name: "Anonymous Pro"
-  enabled_plugins: ["weather", "twelvedata", "coingecko"]
+  enabled_plugins: ["weather", "twelvedata", "coingecko", "currency"]
 
 plugins:
   twelvedata:
@@ -153,6 +159,10 @@ plugins:
     symbols: ["bitcoin"]
   weather:
     location: Kyiv
+  currency:
+    screens:
+      - pairs: ["EUR/PLN", "USD/PLN", "GBP/PLN", "CHF/PLN"]
+      - pairs: ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF"]
 ```
 
 ## Connecting a TRMNL device

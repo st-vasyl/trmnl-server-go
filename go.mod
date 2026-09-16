@@ -3,6 +3,7 @@ module trmnl-server-go
 go 1.26.4
 
 require (
+	github.com/emersion/go-ical v0.0.0-20250609112844-439c63cef608
 	github.com/rs/zerolog v1.35.1
 	github.com/tdewolff/font v0.0.0-20260527091451-1663e68cb8a4
 	github.com/thanhpk/randstr v1.0.6
@@ -27,6 +28,7 @@ require (
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/tdewolff/parse/v2 v2.8.13 // indirect
+	github.com/teambition/rrule-go v1.8.2 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.38.0 // indirect

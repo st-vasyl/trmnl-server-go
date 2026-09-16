@@ -128,6 +128,46 @@ func TestGetConfig_ParsesCurrencyScreens(t *testing.T) {
 	}
 }
 
+const calendarYAML = `
+common:
+  enabled_plugins: ["calendar"]
+plugins:
+  calendar:
+    timezone: "Europe/Kyiv"
+    layout: "list"
+    calendars:
+      - name: "Work"
+        url: "https://calendar.google.com/calendar/ical/abc/basic.ics"
+      - name: "Family"
+        url: "webcal://p44-caldav.icloud.com/published/2/xyz"
+`
+
+func TestGetConfig_ParsesCalendar(t *testing.T) {
+	path := writeTempFile(t, "config.yaml", calendarYAML)
+
+	c, err := GetConfig(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cal := c.Plugins.Calendar
+	if cal.Timezone != "Europe/Kyiv" {
+		t.Errorf("Calendar.Timezone = %q, want Europe/Kyiv", cal.Timezone)
+	}
+	if cal.Layout != "list" {
+		t.Errorf("Calendar.Layout = %q, want list", cal.Layout)
+	}
+	if len(cal.Calendars) != 2 {
+		t.Fatalf("Calendar.Calendars len = %d, want 2", len(cal.Calendars))
+	}
+	if cal.Calendars[0].Name != "Work" || cal.Calendars[0].URL != "https://calendar.google.com/calendar/ical/abc/basic.ics" {
+		t.Errorf("Calendars[0] = %+v", cal.Calendars[0])
+	}
+	if cal.Calendars[1].Name != "Family" || cal.Calendars[1].URL != "webcal://p44-caldav.icloud.com/published/2/xyz" {
+		t.Errorf("Calendars[1] = %+v", cal.Calendars[1])
+	}
+}
+
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

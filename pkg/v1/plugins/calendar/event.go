@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"trmnl-server-go/pkg/v1/render"
+
 	"github.com/emersion/go-ical"
 	"github.com/rs/zerolog/log"
 )
@@ -57,12 +59,14 @@ func overlaps(start, end, from, to time.Time) bool {
 
 // eventsForDay expands cal into the events that overlap [from, to), including
 // occurrences of recurring events, with RECURRENCE-ID overrides applied and
-// cancelled entries dropped. Malformed events are logged and skipped.
+// cancelled or declined entries dropped. Malformed events are logged and
+// skipped.
 func eventsForDay(cal *ical.Calendar, calName string, from, to time.Time, loc *time.Location) []Event {
 	events := cal.Events()
 	for _, ev := range events {
 		stripUnknownTZIDs(ev.Component)
 	}
+	owner := feedOwner(cal)
 
 	// An override (a VEVENT with RECURRENCE-ID) replaces the generated
 	// occurrence of its series that starts at that instant, even when the
@@ -79,6 +83,9 @@ func eventsForDay(cal *ical.Calendar, calName string, from, to time.Time, loc *t
 	var out []Event
 	for _, ev := range events {
 		if status, err := ev.Status(); err == nil && status == ical.EventCancelled {
+			continue
+		}
+		if declinedBy(ev, owner) {
 			continue
 		}
 		start, err := ev.DateTimeStart(loc)
@@ -156,12 +163,46 @@ func uid(ev ical.Event) string {
 	return s
 }
 
+// title is the SUMMARY with symbols the font cannot draw removed (emoji are
+// common in shared calendars) and whitespace collapsed; empty becomes untitled.
 func title(ev ical.Event) string {
 	s, err := ev.Props.Text(ical.PropSummary)
-	if err != nil || strings.TrimSpace(s) == "" {
+	if err != nil {
 		return untitled
 	}
-	return strings.TrimSpace(s)
+	s = strings.Join(strings.Fields(render.Printable(s)), " ")
+	if s == "" {
+		return untitled
+	}
+	return s
+}
+
+// feedOwner returns the lower-cased address the feed belongs to, taken from
+// Google's X-WR-CALNAME header when it is an address, or "" when unknown.
+func feedOwner(cal *ical.Calendar) string {
+	name, err := cal.Props.Text("X-WR-CALNAME")
+	if err != nil || !strings.Contains(name, "@") {
+		return ""
+	}
+	return strings.ToLower(strings.TrimSpace(name))
+}
+
+// declinedBy reports whether owner is listed as an attendee who declined the
+// event. Google keeps such invitations in the feed but hides them in its UI.
+func declinedBy(ev ical.Event, owner string) bool {
+	if owner == "" {
+		return false
+	}
+	for _, att := range ev.Props.Values(ical.PropAttendee) {
+		if !strings.EqualFold(att.Params.Get(ical.ParamParticipationStatus), "DECLINED") {
+			continue
+		}
+		addr := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(att.Value)), "mailto:")
+		if addr == owner {
+			return true
+		}
+	}
+	return false
 }
 
 // stripUnknownTZIDs removes TZID parameters that time.LoadLocation cannot

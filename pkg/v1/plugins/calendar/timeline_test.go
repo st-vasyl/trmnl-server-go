@@ -119,6 +119,42 @@ func TestLayoutColumns_ShortEventKeepsItsMinimumHeightClear(t *testing.T) {
 	}
 }
 
+func TestBlockMetrics_ScaleWithTheHourGrid(t *testing.T) {
+	// Twelve visible hours: a 30-minute slot is about 14px, so single-line
+	// text shrinks to 11px and the minimum block stays inside the slot.
+	size, minH := blockMetrics(float64(tlGridBottom-tlGridTop) / 12)
+	if size != 11 || minH != 14 {
+		t.Errorf("12h grid: size %v, minH %d, want 11 and 14", size, minH)
+	}
+	// A short window leaves room for the full-size text.
+	size, minH = blockMetrics(float64(tlGridBottom-tlGridTop) / 6)
+	if size != 16 || minH != 19 {
+		t.Errorf("6h grid: size %v, minH %d, want 16 and 19", size, minH)
+	}
+}
+
+func TestLineSizeFor_GrowsWithBlockHeight(t *testing.T) {
+	cases := map[int]float64{14: 11, 10: 11, 17: 14, 28: 16, 60: 16}
+	for height, want := range cases {
+		if got := lineSizeFor(height); got != want {
+			t.Errorf("lineSizeFor(%d) = %v, want %v", height, got, want)
+		}
+	}
+}
+
+func TestMinBlockDuration_LetsShortConsecutiveMeetingsStack(t *testing.T) {
+	pxPerHour := float64(tlGridBottom-tlGridTop) / 12
+	if d := minBlockDuration(pxPerHour); d >= 30*time.Minute {
+		t.Errorf("minimum block spans %v on a 12h grid, want under 30m so half-hour slots stack", d)
+	}
+	// A 20-minute standup followed ten minutes later by the next meeting
+	// must stack, not sit side by side.
+	blocks := layoutColumns([]Event{timed("standup", 17, 30, 17, 50), timed("leads", 18, 0, 18, 20)}, minBlockDuration(pxPerHour))
+	if _, n := cols(t, blocks, "leads"); n != 1 {
+		t.Errorf("leads: %d columns, want 1", n)
+	}
+}
+
 func TestOneLineText_PrefersTitleWhenSpanDoesNotFit(t *testing.T) {
 	loadTestFont(t)
 	wide, err := oneLineText("09:30-10:00", "Standup", tlBlockLineSize, 600)

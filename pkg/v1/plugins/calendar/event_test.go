@@ -31,6 +31,13 @@ func ics(events ...string) string {
 		strings.Join(events, "") + "END:VCALENDAR\r\n"
 }
 
+// icsOwned wraps VEVENT bodies in a VCALENDAR that names its owner, the way
+// Google feeds do.
+func icsOwned(owner string, events ...string) string {
+	return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//test//EN\r\nX-WR-CALNAME:" + owner + "\r\n" +
+		strings.Join(events, "") + "END:VCALENDAR\r\n"
+}
+
 // vevent builds one VEVENT from property lines.
 func vevent(lines ...string) string {
 	return "BEGIN:VEVENT\r\n" + strings.Join(lines, "\r\n") + "\r\nEND:VEVENT\r\n"
@@ -417,6 +424,62 @@ func TestEventsForDay_SummaryIsUnescapedAndDefaulted(t *testing.T) {
 	}
 	if got[1].Title != "(No title)" {
 		t.Errorf("title = %q, want placeholder", got[1].Title)
+	}
+}
+
+func TestEventsForDay_SkipsEventsTheOwnerDeclined(t *testing.T) {
+	// Google keeps declined invitations in the feed with the owner's
+	// PARTSTAT=DECLINED, while hiding them in its own UI.
+	got := today(t, icsOwned("Me@Example.com",
+		vevent("UID:declined", "DTSTART;TZID=Europe/Kyiv:20260916T090000", "DTEND;TZID=Europe/Kyiv:20260916T100000",
+			"ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=DECLINED;CN=Me:mailto:me@example.com",
+			"ATTENDEE;PARTSTAT=ACCEPTED:mailto:other@example.com",
+			"SUMMARY:Old series"),
+		vevent("UID:accepted", "DTSTART;TZID=Europe/Kyiv:20260916T110000", "DTEND;TZID=Europe/Kyiv:20260916T120000",
+			"ATTENDEE;PARTSTAT=ACCEPTED:mailto:me@example.com",
+			"ATTENDEE;PARTSTAT=DECLINED:mailto:other@example.com",
+			"SUMMARY:Kept"),
+		vevent("UID:own", "DTSTART;TZID=Europe/Kyiv:20260916T130000", "SUMMARY:No attendees"),
+	))
+	if len(got) != 2 || got[0].UID != "accepted" || got[1].UID != "own" {
+		t.Fatalf("got %+v, want only the accepted event and the one without attendees", got)
+	}
+}
+
+func TestEventsForDay_DeclinedInstanceOfSeriesIsDropped(t *testing.T) {
+	got := today(t, icsOwned("me@example.com",
+		vevent(weeklyMaster, "ATTENDEE;PARTSTAT=ACCEPTED:mailto:me@example.com"),
+		vevent(
+			"UID:w1",
+			"RECURRENCE-ID;TZID=Europe/Kyiv:20260916T090000",
+			"DTSTART;TZID=Europe/Kyiv:20260916T090000",
+			"DTEND;TZID=Europe/Kyiv:20260916T100000",
+			"ATTENDEE;PARTSTAT=DECLINED:mailto:me@example.com",
+			"SUMMARY:Weekly sync",
+		),
+	))
+	if len(got) != 0 {
+		t.Fatalf("got %+v, want none", got)
+	}
+}
+
+func TestEventsForDay_WithoutAKnownOwnerAttendeesAreIgnored(t *testing.T) {
+	declined := vevent("UID:x", "DTSTART;TZID=Europe/Kyiv:20260916T090000",
+		"ATTENDEE;PARTSTAT=DECLINED:mailto:me@example.com", "SUMMARY:X")
+	if got := today(t, ics(declined)); len(got) != 1 {
+		t.Errorf("feed without X-WR-CALNAME: got %d events, want 1", len(got))
+	}
+	if got := today(t, icsOwned("Family", declined)); len(got) != 1 {
+		t.Errorf("feed named without an address: got %d events, want 1", len(got))
+	}
+}
+
+func TestEventsForDay_TitleDropsSymbolsTheFontLacks(t *testing.T) {
+	loadTestFont(t)
+	got := today(t, ics(vevent("UID:e", "DTSTART;TZID=Europe/Kyiv:20260916T090000",
+		"SUMMARY:🎛️ DevOps Open Office 🏢 🕞 - East 🌍")))
+	if len(got) != 1 || got[0].Title != "DevOps Open Office - East" {
+		t.Fatalf("got %+v, want the title without emoji and with single spaces", got)
 	}
 }
 

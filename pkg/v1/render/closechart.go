@@ -38,7 +38,7 @@ func TextWidth(s string, fontSize float64) (int, error) {
 		return 0, err
 	}
 	defer face.Close()
-	return font.MeasureString(face, s).Ceil(), nil
+	return font.MeasureString(face, Printable(s)).Ceil(), nil
 }
 
 // AddRangeBar draws a thin horizontal track across r with a full-height marker

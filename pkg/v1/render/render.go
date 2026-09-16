@@ -99,7 +99,7 @@ func AddText(img *image.RGBA, text string, point image.Point, col color.Color, f
 		},
 	}
 
-	drawer.DrawString(text)
+	drawer.DrawString(Printable(text))
 
 	return nil
 }

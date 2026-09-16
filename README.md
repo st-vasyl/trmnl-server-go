@@ -145,7 +145,8 @@ than four pairs on a screen stops the server at startup with a clear error.
 The calendar plugin subscribes to read-only iCalendar (`.ics`) feeds, so it needs no OAuth flow or API key. Every
 configured feed is merged into one screen for the current day, each event tagged with its calendar name when more
 than one feed is configured. Recurring events, moved or cancelled occurrences, multi-day and overnight events, and
-feeds in other time zones are all handled.
+feeds in other time zones are all handled. Invitations you declined are left out (Google keeps them in the feed
+but hides them in its own UI), and symbols the text font cannot draw, such as emoji, are dropped from titles.
 
 Two layouts are available. `timeline` (the default) draws the day as an hour grid, 07:00–19:00 by default and
 stretched to cover earlier or later events, with an all-day strip on top and overlapping events placed side by

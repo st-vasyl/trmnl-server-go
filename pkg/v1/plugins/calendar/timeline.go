@@ -32,11 +32,11 @@ const (
 
 	tlBlockTitleSize = 18
 	tlBlockTimeSize  = 14
-	tlBlockLineSize  = 16 // single-line blocks
+	tlBlockLineSize  = 16 // largest single-line text; see blockMetrics
+	tlBlockLineMin   = 11 // smallest single-line text that stays legible
 	tlBlockPad       = 6
-	tlBlockBar       = 4 // solid bar on the block's left edge
-	tlBlockGap       = 3 // space between neighbouring blocks
-	tlMinBlockH      = 22
+	tlBlockBar       = 4  // solid bar on the block's left edge
+	tlBlockGap       = 3  // space between neighbouring blocks
 	tlTwoLineH       = 40 // blocks at least this tall get time and title lines
 	tlDither         = 3  // dot spacing of the block fill
 
@@ -54,6 +54,29 @@ const (
 type block struct {
 	Event
 	col, cols int
+}
+
+// blockMetrics derives the single-line text size and the minimum block height
+// from the hour scale, so that a 30-minute event drawn at its natural height
+// still holds a line of text. Twelve visible hours give 11px text; six give
+// the full 16px.
+func blockMetrics(pxPerHour float64) (lineSize float64, minH int) {
+	slot := math.Round(pxPerHour / 2)
+	lineSize = math.Min(math.Max(slot-3, tlBlockLineMin), tlBlockLineSize)
+	return lineSize, int(lineSize) + 3
+}
+
+// lineSizeFor picks the single-line text size a block of the given height
+// can hold, between the legible minimum and the full size.
+func lineSizeFor(height int) float64 {
+	return math.Min(math.Max(float64(height)-3, tlBlockLineMin), tlBlockLineSize)
+}
+
+// minBlockDuration is the span a block of minimum height covers on the grid;
+// events hold their column for at least this long (see layoutColumns).
+func minBlockDuration(pxPerHour float64) time.Duration {
+	_, minH := blockMetrics(pxPerHour)
+	return time.Duration(float64(minH) / pxPerHour * float64(time.Hour))
 }
 
 // timelineWindow returns the hour-aligned span of the grid for day: the
@@ -208,11 +231,12 @@ func renderTimeline(v dayView, outputPath string, voltage float32) error {
 		}
 	}
 
-	// Event blocks. The minimum block height, expressed as time, decides when
-	// neighbouring events must share the width instead of stacking.
+	// Event blocks. Text size and minimum height follow the hour scale, and
+	// the minimum height, expressed as time, decides when neighbouring events
+	// must share the width instead of stacking.
 	gridW := gridX1 - gridX0
-	minDur := time.Duration(float64(tlMinBlockH) / pxPerHour * float64(time.Hour))
-	for _, b := range layoutColumns(timed, minDur) {
+	_, minH := blockMetrics(pxPerHour)
+	for _, b := range layoutColumns(timed, minBlockDuration(pxPerHour)) {
 		s, e := b.Start, b.End
 		if s.Before(winStart) {
 			s = winStart
@@ -221,13 +245,13 @@ func renderTimeline(v dayView, outputPath string, voltage float32) error {
 			e = winEnd
 		}
 		y0, y1 := yOf(s), yOf(e)
-		if y1 < y0+tlMinBlockH {
-			y1 = y0 + tlMinBlockH
+		if y1 < y0+minH {
+			y1 = y0 + minH
 		}
 		if y1 > tlGridBottom {
 			y1 = tlGridBottom
-			if y0 > y1-tlMinBlockH {
-				y0 = y1 - tlMinBlockH
+			if y0 > y1-minH {
+				y0 = y1 - minH
 			}
 		}
 		colW := gridW / b.cols
@@ -290,7 +314,8 @@ func drawAllDayBlocks(img *image.RGBA, events []Event, x0, x1, y0, y1 int, showT
 }
 
 // drawBlock draws one timed event: a tall block gets the time span on the
-// first line and the title on the second; a short one gets both on one line.
+// first line and the title on the second; a short one gets both on one line
+// sized to the block's height.
 func drawBlock(img *image.RGBA, e Event, r image.Rectangle, from, to time.Time, showTag bool) error {
 	fillBlock(img, r)
 	span := timeLabel(e, from, to)
@@ -301,12 +326,13 @@ func drawBlock(img *image.RGBA, e Event, r image.Rectangle, from, to time.Time, 
 		}
 		return blockLine(img, r, title, tlBlockTitleSize, r.Min.Y+tlBlockTimeSize+tlBlockTitleSize+8)
 	}
+	lineSize := lineSizeFor(r.Dy())
 	maxW := r.Max.X - tlBlockPad - (r.Min.X + tlBlockBar + tlBlockPad)
-	line, err := oneLineText(span, title, tlBlockLineSize, maxW)
+	line, err := oneLineText(span, title, lineSize, maxW)
 	if err != nil {
 		return err
 	}
-	return blockLine(img, r, line, tlBlockLineSize, r.Min.Y+17)
+	return blockLine(img, r, line, lineSize, r.Min.Y+int(lineSize)+1)
 }
 
 // oneLineText is the text of a single-line block: the time span and title

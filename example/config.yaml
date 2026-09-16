@@ -20,3 +20,12 @@ plugins:
     screens:
       - pairs: ["EUR/PLN", "USD/PLN", "GBP/PLN", "CHF/PLN"]
       - pairs: ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF"]
+  # Add "calendar" to enabled_plugins once the feed URLs below are your own.
+  calendar:
+    timezone: "Europe/Kyiv"
+    layout: "timeline"   # or "list"
+    calendars:
+      - name: "Work"
+        url: "https://calendar.google.com/calendar/ical/<calendar-id>/private-<key>/basic.ics"
+      - name: "Family"
+        url: "webcal://p44-caldav.icloud.com/published/2/<token>"

@@ -42,6 +42,12 @@ const (
 	Wind      = "wind"
 	WindGusts = "windgusts"
 
+	Umbrella = "umbrella"
+	UV       = "uv"
+	Pressure = "pressure"
+	Sunrise  = "sunrise"
+	Sunset   = "sunset"
+
 	TrendUp   = "trendup"
 	TrendDown = "trenddown"
 	TrendFlat = "trendflat"
@@ -80,8 +86,14 @@ var codepoints = map[string]rune{
 	HumidityMid:  0xf165, // humidity_mid
 	HumidityLow:  0xf164, // humidity_low
 
-	Wind:      0xefd8, // wind
-	WindGusts: 0xec0c, // windGusts
+	Wind:      0xefd8, // air
+	WindGusts: 0xec0c, // wind_power
+
+	Umbrella: 0xf1ad, // umbrella
+	UV:       0xe518, // light_mode
+	Pressure: 0xe9e4, // speed
+	Sunrise:  0xe1c6, // wb_twilight
+	Sunset:   0xef44, // bedtime
 
 	TrendUp:   0xe8e5, // trending_up
 	TrendDown: 0xe8e3, // trending_down

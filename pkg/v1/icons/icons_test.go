@@ -164,6 +164,20 @@ func TestRender_TrendIconsAreRegistered(t *testing.T) {
 	}
 }
 
+func TestRender_WeatherStatIconsAreRegistered(t *testing.T) {
+	ttf := readTestTTF(t)
+	dir := withFontOverrides(t)
+	if err := os.WriteFile(filepath.Join(dir, "MaterialSymbols.ttf"), ttf, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{Umbrella, UV, Pressure, Sunrise, Sunset} {
+		if _, err := Render(name, 24); err != nil {
+			t.Errorf("Render(%q): %v", name, err)
+		}
+	}
+}
+
 func TestRender_CalendarIconsAreRegistered(t *testing.T) {
 	ttf := readTestTTF(t)
 	dir := withFontOverrides(t)

@@ -15,7 +15,7 @@ import (
 // Compile-time assertions: each concrete plugin must satisfy plugin.Plugin.
 // Build will fail here if any plugin drops or changes a required method.
 var (
-	_ plugin.Plugin = (*weather.WeatherPlugin)(nil)
+	_ plugin.Plugin = (*weather.Plugin)(nil)
 	_ plugin.Plugin = (*stocks.StocksPlugin)(nil)
 	_ plugin.Plugin = (*crypto.CryptoPlugin)(nil)
 )
@@ -53,7 +53,7 @@ func TestPlugin_ConcretePluginsExposeNonEmptyName(t *testing.T) {
 	// A plugin with no name would be unrouteable in the worker dispatch; pin
 	// down that each concrete plugin returns a stable identifier.
 	plugins := []plugin.Plugin{
-		&weather.WeatherPlugin{},
+		&weather.Plugin{},
 		&stocks.StocksPlugin{},
 		&crypto.CryptoPlugin{},
 	}

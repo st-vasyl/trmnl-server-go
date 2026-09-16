@@ -16,6 +16,8 @@ plugins:
     symbols: ["bitcoin"]
   weather:
     location: Kyiv
+    temperature_unit: celsius   # or fahrenheit
+    wind_speed_unit: ms         # or kmh, mph, kn
   currency:
     screens:
       - pairs: ["EUR/PLN", "USD/PLN", "GBP/PLN", "CHF/PLN"]

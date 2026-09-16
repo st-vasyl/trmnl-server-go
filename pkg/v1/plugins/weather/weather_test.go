@@ -3,19 +3,126 @@ package weather
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"trmnl-server-go/pkg/v1/icons"
 )
 
 func TestWeatherPlugin_NameAndScreens(t *testing.T) {
-	p := &WeatherPlugin{Location: "Wroclaw"}
+	p, err := New("Wroclaw", "", "")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	if p.Name() != "weather" {
 		t.Errorf("Name = %q, want weather", p.Name())
 	}
 	got := p.Screens()
 	if len(got) != 1 || got[0] != "weather" {
 		t.Errorf("Screens = %v, want [weather]", got)
+	}
+}
+
+func TestNew_DefaultsToCelsiusAndMetersPerSecond(t *testing.T) {
+	p, err := New("Wroclaw", "", "")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if p.temperatureUnit != "celsius" {
+		t.Errorf("temperatureUnit = %q, want celsius", p.temperatureUnit)
+	}
+	if p.windSpeedUnit != "ms" {
+		t.Errorf("windSpeedUnit = %q, want ms", p.windSpeedUnit)
+	}
+}
+
+func TestNew_AcceptsEveryOpenMeteoUnit(t *testing.T) {
+	for _, tu := range []string{"celsius", "fahrenheit"} {
+		for _, wu := range []string{"ms", "kmh", "mph", "kn"} {
+			if _, err := New("Denver", tu, wu); err != nil {
+				t.Errorf("New(%q, %q): %v", tu, wu, err)
+			}
+		}
+	}
+}
+
+func TestNew_RejectsUnknownTemperatureUnit(t *testing.T) {
+	if _, err := New("Wroclaw", "kelvin", ""); err == nil {
+		t.Fatal("expected error for temperature_unit kelvin")
+	}
+}
+
+func TestNew_RejectsUnknownWindSpeedUnit(t *testing.T) {
+	if _, err := New("Wroclaw", "", "knots"); err == nil {
+		t.Fatal("expected error for wind_speed_unit knots")
+	}
+}
+
+func TestNew_RequiresLocation(t *testing.T) {
+	if _, err := New("  ", "", ""); err == nil {
+		t.Fatal("expected error for an empty location")
+	}
+}
+
+func TestGetLocation_NoResultsIsAnError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"generationtime_ms": 0.5}`))
+	}))
+	defer srv.Close()
+	withGeocodingURL(t, srv)
+
+	if _, err := getLocation("Nowhere"); err == nil {
+		t.Fatal("expected error when geocoding returns no results")
+	}
+}
+
+func TestGetLocation_EscapesCityName(t *testing.T) {
+	var gotName string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotName = r.URL.Query().Get("name")
+		w.Write([]byte(`{"results": [{"name": "New York", "latitude": 40.7, "longitude": -74.0, "country": "US"}]}`))
+	}))
+	defer srv.Close()
+	withGeocodingURL(t, srv)
+
+	if _, err := getLocation("New York"); err != nil {
+		t.Fatalf("getLocation: %v", err)
+	}
+	if gotName != "New York" {
+		t.Errorf("name query = %q, want %q", gotName, "New York")
+	}
+}
+
+func TestGetWeather_RequestsConfiguredUnitsAndFields(t *testing.T) {
+	var query url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.Query()
+		w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	withForecastURL(t, srv)
+
+	loc := locationResult{Latitude: 39.7, Longitude: -104.9}
+	if _, err := getWeather(loc, "fahrenheit", "mph"); err != nil {
+		t.Fatalf("getWeather: %v", err)
+	}
+	if got := query.Get("temperature_unit"); got != "fahrenheit" {
+		t.Errorf("temperature_unit = %q, want fahrenheit", got)
+	}
+	if got := query.Get("wind_speed_unit"); got != "mph" {
+		t.Errorf("wind_speed_unit = %q, want mph", got)
+	}
+	if got := query.Get("forecast_days"); got != "5" {
+		t.Errorf("forecast_days = %q, want 5", got)
+	}
+	if got := query.Get("timezone"); got != "auto" {
+		t.Errorf("timezone = %q, want auto", got)
+	}
+	daily := query.Get("daily")
+	for _, field := range []string{"sunrise", "sunset", "uv_index_max", "precipitation_probability_max", "temperature_2m_min"} {
+		if !strings.Contains(daily, field) {
+			t.Errorf("daily = %q, missing %s", daily, field)
+		}
 	}
 }
 
@@ -49,8 +156,8 @@ func TestGetLocation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("getLocation: %v", err)
 	}
-	if len(l.Results) != 1 || l.Results[0].Name != "Wroclaw" {
-		t.Errorf("results = %+v", l.Results)
+	if l.Name != "Wroclaw" || l.Latitude != 51.1 || l.Longitude != 17.03 {
+		t.Errorf("location = %+v", l)
 	}
 }
 
@@ -85,9 +192,7 @@ func TestGetWeather(t *testing.T) {
 	defer srv.Close()
 	withForecastURL(t, srv)
 
-	// getWeather requires l.Results[0] to be set.
-	l := locationResponse{Results: []locationResult{{Latitude: 51.1, Longitude: 17.03}}}
-	weather, err := getWeather(l)
+	weather, err := getWeather(locationResult{Latitude: 51.1, Longitude: 17.03}, "celsius", "ms")
 	if err != nil {
 		t.Fatalf("getWeather: %v", err)
 	}

@@ -55,8 +55,13 @@ type Coingecko struct {
 	Symbols []string `yaml:"symbols"`
 }
 
+// Weather configures the weather plugin: the city to geocode and the units
+// the screen shows. TemperatureUnit is "celsius" (default) or "fahrenheit";
+// WindSpeedUnit is "ms" (default), "kmh", "mph" or "kn".
 type Weather struct {
-	Location string `yaml:"location"`
+	Location        string `yaml:"location"`
+	TemperatureUnit string `yaml:"temperature_unit"`
+	WindSpeedUnit   string `yaml:"wind_speed_unit"`
 }
 
 // Currency lists the screens of the currency plugin. Each screen becomes one

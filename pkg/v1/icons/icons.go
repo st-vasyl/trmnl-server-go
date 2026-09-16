@@ -91,6 +91,19 @@ var codepoints = map[string]rune{
 	Warning:  0xf083, // warning
 }
 
+// Trend picks the up, down, or flat glyph for a signed change. Moves smaller
+// than 0.005 in magnitude, which print as 0.00, count as flat.
+func Trend(delta float64) string {
+	switch {
+	case delta >= 0.005:
+		return TrendUp
+	case delta <= -0.005:
+		return TrendDown
+	default:
+		return TrendFlat
+	}
+}
+
 // Render rasterizes the named icon glyph at size×size pixels onto a transparent
 // RGBA image (black glyph), suitable for compositing onto a canvas.
 func Render(name string, size int) (image.Image, error) {

@@ -130,6 +130,26 @@ func TestRender_DrawsGlyphPixels(t *testing.T) {
 	}
 }
 
+func TestTrend_PicksGlyphBySignWithDeadZone(t *testing.T) {
+	tests := []struct {
+		in   float64
+		want string
+	}{
+		{1.74, TrendUp},
+		{0.005, TrendUp},
+		{-1.74, TrendDown},
+		{-0.005, TrendDown},
+		{0, TrendFlat},
+		{0.004, TrendFlat},
+		{-0.004, TrendFlat},
+	}
+	for _, tc := range tests {
+		if got := Trend(tc.in); got != tc.want {
+			t.Errorf("Trend(%v) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
 func TestRender_TrendIconsAreRegistered(t *testing.T) {
 	ttf := readTestTTF(t)
 	dir := withFontOverrides(t)

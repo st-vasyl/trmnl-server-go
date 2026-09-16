@@ -23,19 +23,22 @@ func withBaseURL(t *testing.T, srv *httptest.Server) {
 	t.Cleanup(func() { baseURL = orig })
 }
 
-// seriesFixture mirrors a real Frankfurter time-series response for the
-// currencies used by the first example screen.
-const seriesFixture = `{
-	"amount": 1.0,
-	"base": "EUR",
-	"start_date": "2026-09-11",
-	"end_date": "2026-09-15",
-	"rates": {
-		"2026-09-11": {"CHF": 0.9402, "GBP": 0.8511, "PLN": 4.325, "USD": 1.1610},
-		"2026-09-14": {"CHF": 0.9430, "GBP": 0.8549, "PLN": 4.3418, "USD": 1.1560},
-		"2026-09-15": {"CHF": 0.9441, "GBP": 0.8558, "PLN": 4.34, "USD": 1.1539}
-	}
-}`
+// seriesFixture mirrors a real Frankfurter v2 time-series response (one row
+// per date and quote) for the currencies used by the first example screen.
+const seriesFixture = `[
+	{"date":"2026-09-11","base":"EUR","quote":"CHF","rate":0.9402},
+	{"date":"2026-09-11","base":"EUR","quote":"GBP","rate":0.8511},
+	{"date":"2026-09-11","base":"EUR","quote":"PLN","rate":4.325},
+	{"date":"2026-09-11","base":"EUR","quote":"USD","rate":1.1610},
+	{"date":"2026-09-14","base":"EUR","quote":"CHF","rate":0.9430},
+	{"date":"2026-09-14","base":"EUR","quote":"GBP","rate":0.8549},
+	{"date":"2026-09-14","base":"EUR","quote":"PLN","rate":4.3418},
+	{"date":"2026-09-14","base":"EUR","quote":"USD","rate":1.1560},
+	{"date":"2026-09-15","base":"EUR","quote":"CHF","rate":0.9441},
+	{"date":"2026-09-15","base":"EUR","quote":"GBP","rate":0.8558},
+	{"date":"2026-09-15","base":"EUR","quote":"PLN","rate":4.34},
+	{"date":"2026-09-15","base":"EUR","quote":"USD","rate":1.1539}
+]`
 
 func TestNew_NamesScreensByPosition(t *testing.T) {
 	p, err := New([][]string{{"EUR/PLN"}, {"USD/PLN", "GBP/PLN"}})
@@ -59,6 +62,14 @@ func TestNew_NamesScreensByPosition(t *testing.T) {
 
 func TestNew_AcceptsFourLowercasePairs(t *testing.T) {
 	if _, err := New([][]string{{"eur/pln", "usd/pln", "gbp/pln", "chf/pln"}}); err != nil {
+		t.Fatalf("New: %v", err)
+	}
+}
+
+func TestNew_AcceptsCurrenciesBeyondTheECBSet(t *testing.T) {
+	// Frankfurter v2 blends about a hundred central banks, so codes the ECB
+	// never published, such as UAH, are valid.
+	if _, err := New([][]string{{"EUR/UAH", "USD/UAH", "PLN/UAH"}, {"EUR/GEL", "USD/KZT"}}); err != nil {
 		t.Fatalf("New: %v", err)
 	}
 }
@@ -284,14 +295,21 @@ func TestScreenCurrencies_SortedUniqueWithoutEUR(t *testing.T) {
 
 func TestFetchSeries_RequestsEURBasedRangeAndParsesRates(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/2026-08-17..2026-09-16" {
-			t.Errorf("path = %q, want /v1/2026-08-17..2026-09-16", r.URL.Path)
+		if r.URL.Path != "/v2/rates" {
+			t.Errorf("path = %q, want /v2/rates", r.URL.Path)
 		}
-		if got := r.URL.Query().Get("base"); got != "EUR" {
+		q := r.URL.Query()
+		if got := q.Get("base"); got != "EUR" {
 			t.Errorf("base = %q, want EUR", got)
 		}
-		if got := r.URL.Query().Get("symbols"); got != "PLN,USD" {
-			t.Errorf("symbols = %q, want PLN,USD", got)
+		if got := q.Get("quotes"); got != "PLN,USD" {
+			t.Errorf("quotes = %q, want PLN,USD", got)
+		}
+		if got := q.Get("from"); got != "2026-08-17" {
+			t.Errorf("from = %q, want 2026-08-17", got)
+		}
+		if got := q.Get("to"); got != "2026-09-16" {
+			t.Errorf("to = %q, want 2026-09-16", got)
 		}
 		w.Write([]byte(seriesFixture))
 	}))
@@ -318,8 +336,9 @@ func TestFetchSeries_Errors(t *testing.T) {
 		body string
 	}{
 		{"invalid json", "not json"},
-		{"api error message", `{"message": "not found"}`},
-		{"no rates", `{"base": "EUR", "rates": {}}`},
+		{"api error message", `{"status":422,"message":"invalid currency: XXX"}`},
+		{"legacy error message", `{"message": "not found"}`},
+		{"no rates", `[]`},
 	}
 	for _, tc := range tests {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

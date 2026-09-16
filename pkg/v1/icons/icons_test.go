@@ -130,3 +130,17 @@ func TestRender_DrawsGlyphPixels(t *testing.T) {
 	}
 }
 
+func TestRender_TrendIconsAreRegistered(t *testing.T) {
+	ttf := readTestTTF(t)
+	dir := withFontOverrides(t)
+	if err := os.WriteFile(filepath.Join(dir, "MaterialSymbols.ttf"), ttf, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{TrendUp, TrendDown, TrendFlat} {
+		if _, err := Render(name, 24); err != nil {
+			t.Errorf("Render(%q): %v", name, err)
+		}
+	}
+}
+

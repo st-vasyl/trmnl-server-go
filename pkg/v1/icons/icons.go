@@ -41,6 +41,10 @@ const (
 
 	Wind      = "wind"
 	WindGusts = "windgusts"
+
+	TrendUp   = "trendup"
+	TrendDown = "trenddown"
+	TrendFlat = "trendflat"
 )
 
 // codepoints maps each semantic icon name to its Material Symbols Outlined
@@ -75,6 +79,10 @@ var codepoints = map[string]rune{
 
 	Wind:      0xefd8, // wind
 	WindGusts: 0xec0c, // windGusts
+
+	TrendUp:   0xe8e5, // trending_up
+	TrendDown: 0xe8e3, // trending_down
+	TrendFlat: 0xe8e4, // trending_flat
 }
 
 // Render rasterizes the named icon glyph at size×size pixels onto a transparent

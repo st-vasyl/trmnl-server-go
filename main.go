@@ -11,6 +11,7 @@ import (
 	"trmnl-server-go/pkg/v1/handler"
 	"trmnl-server-go/pkg/v1/plugin"
 	"trmnl-server-go/pkg/v1/plugins/crypto"
+	"trmnl-server-go/pkg/v1/plugins/currency"
 	"trmnl-server-go/pkg/v1/plugins/stocks"
 	"trmnl-server-go/pkg/v1/plugins/weather"
 	"trmnl-server-go/pkg/v1/render"
@@ -73,7 +74,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	plugins := buildPlugins(&c)
+	plugins, err := buildPlugins(&c)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to build plugins")
+		os.Exit(1)
+	}
 
 	wg := sync.WaitGroup{}
 	wg.Add(2)
@@ -92,7 +97,9 @@ func main() {
 
 // buildPlugins constructs the active plugin list from config.
 // To enable or disable a plugin, add or remove it from enabled_plugins in config.yaml.
-func buildPlugins(c *config.Config) []plugin.Plugin {
+// Plugins that validate their configuration report problems here so the
+// server fails at startup instead of rendering empty screens.
+func buildPlugins(c *config.Config) ([]plugin.Plugin, error) {
 	enabled := make(map[string]bool, len(c.Common.EnabledPlugins))
 	for _, name := range c.Common.EnabledPlugins {
 		enabled[name] = true
@@ -116,6 +123,17 @@ func buildPlugins(c *config.Config) []plugin.Plugin {
 			Symbols: c.Plugins.Coingecko.Symbols,
 		})
 	}
+	if enabled["currency"] {
+		screens := make([][]string, 0, len(c.Plugins.Currency.Screens))
+		for _, s := range c.Plugins.Currency.Screens {
+			screens = append(screens, s.Pairs)
+		}
+		p, err := currency.New(screens)
+		if err != nil {
+			return nil, err
+		}
+		plugins = append(plugins, p)
+	}
 
-	return plugins
+	return plugins, nil
 }

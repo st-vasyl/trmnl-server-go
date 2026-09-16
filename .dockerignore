@@ -28,5 +28,6 @@ cover/
 # Not needed in the image
 /docs/
 README.md
+CLAUDE.md
 Makefile
 example/

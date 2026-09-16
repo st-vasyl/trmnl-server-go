@@ -11,6 +11,7 @@ profile.out
 .env
 .DS_Store
 __debug_bin*
+CLAUDE.md
 
 # Cashed and runtime
 /bin/

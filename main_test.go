@@ -35,6 +35,17 @@ func TestBuildPlugins_InvalidCurrencyConfigIsAnError(t *testing.T) {
 	}
 }
 
+func TestBuildPlugins_InvalidWeatherUnitIsAnError(t *testing.T) {
+	c := &config.Config{}
+	c.Common.EnabledPlugins = []string{"weather"}
+	c.Plugins.Weather.Location = "Kyiv"
+	c.Plugins.Weather.TemperatureUnit = "kelvin"
+
+	if _, err := buildPlugins(c); err == nil {
+		t.Fatal("expected error for an unknown temperature unit")
+	}
+}
+
 func TestBuildPlugins_EnablesCalendarFromConfig(t *testing.T) {
 	c := &config.Config{}
 	c.Common.EnabledPlugins = []string{"calendar", "weather"}

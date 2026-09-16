@@ -113,9 +113,11 @@ func buildPlugins(c *config.Config) ([]plugin.Plugin, error) {
 	var plugins []plugin.Plugin
 
 	if enabled["weather"] {
-		plugins = append(plugins, &weather.WeatherPlugin{
-			Location: c.Plugins.Weather.Location,
-		})
+		p, err := weather.New(c.Plugins.Weather.Location, c.Plugins.Weather.TemperatureUnit, c.Plugins.Weather.WindSpeedUnit)
+		if err != nil {
+			return nil, err
+		}
+		plugins = append(plugins, p)
 	}
 	if enabled["twelvedata"] {
 		plugins = append(plugins, &stocks.StocksPlugin{

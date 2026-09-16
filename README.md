@@ -132,7 +132,7 @@ Only the plugins you list in `enabled_plugins` need a config block.
 |--------------|----------------------|------------------------------------------|
 | `twelvedata` | `symbols`            | Ticker symbols, e.g. `["googl", "nvda"]`.|
 | `coingecko`  | `symbols`            | Coin IDs, e.g. `["bitcoin"]`.            |
-| `weather`    | `location`           | City name, e.g. `Wroclaw`.               |
+| `weather`    | `location`, `temperature_unit`, `wind_speed_unit` | City name, e.g. `Wroclaw`. Optional `temperature_unit` is `celsius` (default) or `fahrenheit`; optional `wind_speed_unit` is `ms` (default), `kmh`, `mph` or `kn`. An unknown unit stops the server at startup. |
 | `currency`   | `screens`            | List of screens, each with `pairs` of 1–4 currency pairs like `EUR/PLN`. Screens rotate as `currency_1`, `currency_2`, … |
 | `calendar`   | `timezone`, `layout`, `calendars` | IANA zone that defines "today" (e.g. `Europe/Warsaw`; defaults to the server's local zone), the screen `layout` (`timeline`, the default hour grid, or `list`, one row per event) and a list of feeds, each with a `name` (shown as a tag) and an ICS `url` (`https://` or `webcal://`). |
 
@@ -194,6 +194,8 @@ plugins:
     symbols: ["bitcoin"]
   weather:
     location: Kyiv
+    temperature_unit: celsius   # or fahrenheit
+    wind_speed_unit: ms         # or kmh, mph, kn
   currency:
     screens:
       - pairs: ["EUR/PLN", "USD/PLN", "GBP/PLN", "CHF/PLN"]

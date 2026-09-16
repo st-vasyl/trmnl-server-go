@@ -82,6 +82,31 @@ func TestGetConfig_ParsesValidYAML(t *testing.T) {
 	}
 }
 
+const weatherUnitsYAML = `
+common:
+  enabled_plugins: ["weather"]
+plugins:
+  weather:
+    location: "Denver"
+    temperature_unit: "fahrenheit"
+    wind_speed_unit: "mph"
+`
+
+func TestGetConfig_ParsesWeatherUnits(t *testing.T) {
+	path := writeTempFile(t, "config.yaml", weatherUnitsYAML)
+
+	c, err := GetConfig(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.Plugins.Weather.TemperatureUnit != "fahrenheit" {
+		t.Errorf("Weather.TemperatureUnit = %q, want fahrenheit", c.Plugins.Weather.TemperatureUnit)
+	}
+	if c.Plugins.Weather.WindSpeedUnit != "mph" {
+		t.Errorf("Weather.WindSpeedUnit = %q, want mph", c.Plugins.Weather.WindSpeedUnit)
+	}
+}
+
 func TestGetConfig_MissingFileReturnsError(t *testing.T) {
 	_, err := GetConfig(filepath.Join(t.TempDir(), "does-not-exist.yaml"))
 	if err == nil {

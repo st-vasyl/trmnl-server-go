@@ -10,7 +10,8 @@ You can run it either as binary or docker container on your local machine or rou
   - `weather` — current conditions and forecast (Open-Meteo, no API key)
   - `twelvedata` — stock quote with change, day and 52-week range, and a 7-day close-price chart (TwelveData, Free API key required)
   - `coingecko` — crypto quote with 24h change, market cap and ATH distance, and a 7-day price chart (CoinGecko, no API key)
-  - `currency` — exchange rates, 4 pairs per screen with daily change and 30-day trend (Frankfurter / ECB, no API key)
+  - `currency` — exchange rates, 4 pairs per screen with daily change and 30-day trend (Frankfurter, 165 currencies including UAH, no API key)
+  - `calendar` — today's agenda merged from any number of iCalendar feeds: Apple/iCloud public calendar links, Google Calendar secret addresses, Outlook, Nextcloud or any `.ics` URL (no API key, no OAuth)
 - **Self-contained** — SQLite for storage, no external database or message broker
 - **Auto-provisioned assets** — fonts and icons (both from Google Fonts) are downloaded on first run and cached locally
 - **Auto-plugin rotation** — each device cycles through the plugins you enable
@@ -19,9 +20,9 @@ You can run it either as binary or docker container on your local machine or rou
 
 Each enabled plugin renders an 800×480 screen for the device. Here's what the built-in plugins produce:
 
-| Weather | Stocks (TwelveData) | Crypto (CoinGecko) | Currency (Frankfurter) |
-|:---:|:---:|:---:|:---:|
-| ![Weather screen — current conditions and forecast](example/weather.png) | ![Stocks screen — AAPL quote and 7-day close-price chart](example/twelvedata_AAPL.png) | ![Crypto screen — Bitcoin 24h price chart](example/coingecko_bitcoin.png) | ![Currency screen — four PLN pairs with daily change and 30-day trend](example/currency.png) |
+| Weather | Stocks (TwelveData) | Crypto (CoinGecko) | Currency (Frankfurter) | Calendar (ICS feeds) |
+|:---:|:---:|:---:|:---:|:---:|
+| ![Weather screen — current conditions and forecast](example/weather.png) | ![Stocks screen — AAPL quote and 7-day close-price chart](example/twelvedata_AAPL.png) | ![Crypto screen — Bitcoin 24h price chart](example/coingecko_bitcoin.png) | ![Currency screen — four PLN pairs with daily change and 30-day trend](example/currency.png) | ![Calendar screen — today's events from two feeds on an hour grid](example/calendar.png) |
 
 ## Requirements
 
@@ -133,10 +134,44 @@ Only the plugins you list in `enabled_plugins` need a config block.
 | `coingecko`  | `symbols`            | Coin IDs, e.g. `["bitcoin"]`.            |
 | `weather`    | `location`           | City name, e.g. `Wroclaw`.               |
 | `currency`   | `screens`            | List of screens, each with `pairs` of 1–4 currency pairs like `EUR/PLN`. Screens rotate as `currency_1`, `currency_2`, … |
+| `calendar`   | `timezone`, `layout`, `calendars` | IANA zone that defines "today" (e.g. `Europe/Warsaw`; defaults to the server's local zone), the screen `layout` (`timeline`, the default hour grid, or `list`, one row per event) and a list of feeds, each with a `name` (shown as a tag) and an ICS `url` (`https://` or `webcal://`). |
 
 Currency pairs read as "1 unit of the first currency in the second", so `EUR/PLN` shows how many PLN one EUR buys.
-Rates are ECB reference rates (about 30 major currencies), updated once per working day. An unknown code or more
-than four pairs on a screen stops the server at startup with a clear error.
+Rates come from the Frankfurter v2 API, which blends about a hundred central banks into daily rates for 165
+currencies, so codes the ECB never published (UAH, GEL, KZT, …) work too. An unknown code or more than four pairs
+on a screen stops the server at startup with a clear error.
+
+#### Calendar feeds
+
+The calendar plugin subscribes to read-only iCalendar (`.ics`) feeds, so it needs no OAuth flow or API key. Every
+configured feed is merged into one screen for the current day, each event tagged with its calendar name when more
+than one feed is configured. Recurring events, moved or cancelled occurrences, multi-day and overnight events, and
+feeds in other time zones are all handled. Invitations you declined are left out (Google keeps them in the feed
+but hides them in its own UI), and symbols the text font cannot draw, such as emoji, are dropped from titles.
+
+Two layouts are available. `timeline` (the default) draws the day as an hour grid fitted to the day's events
+(never narrower than 8 hours; 07:00–19:00 on an empty day), with an all-day strip on top and overlapping events
+placed side by side. Short meetings keep a readable block and nudge the next one down a few pixels rather than
+shrinking. `list` shows one row per event, all-day events first, which fits more on a very busy day.
+
+- **Apple / iCloud** — in Calendar on a Mac, right-click the calendar → *Sharing Settings…* → tick *Public Calendar*
+  and copy the `webcal://` link (on iPhone: *Calendars* → ⓘ next to the calendar → *Public Calendar*). Paste it
+  as-is; the server rewrites `webcal://` to `https://`. Only iCloud calendars you own can be published.
+- **Google Calendar** — on calendar.google.com open *Settings*, pick the calendar, scroll to *Integrate calendar*
+  and copy the *Secret address in iCal format*. Workspace admins can disable this address; personal accounts
+  always have it.
+- **Anything else** — Outlook.com, Fastmail, Nextcloud, Proton and most other services publish an ICS URL too.
+
+Two things to know:
+
+- **Freshness is set by the provider, not by `update_time`.** Google in particular caches the secret feed on its
+  side, so an event added a few minutes ago can take a while to show up.
+- **Anyone holding a feed URL can read that calendar.** Treat `config.yaml` as you treat API keys. A leaked Google
+  address can be reset from the same settings page, and an Apple calendar can be un-published.
+
+Set `timezone` to your IANA zone. Without it the plugin uses the server's local zone, which inside Docker is UTC
+unless you pass `-e TZ=Europe/Warsaw` (or similar). A feed that fails to download is named in the screen's footer
+while the other feeds still render; the screen is skipped only when every feed fails.
 
 Example:
 
@@ -163,6 +198,15 @@ plugins:
     screens:
       - pairs: ["EUR/PLN", "USD/PLN", "GBP/PLN", "CHF/PLN"]
       - pairs: ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF"]
+  # Add "calendar" to enabled_plugins once the feed URLs below are your own.
+  calendar:
+    timezone: "Europe/Kyiv"
+    layout: "timeline"   # or "list"
+    calendars:
+      - name: "Work"
+        url: "https://calendar.google.com/calendar/ical/<calendar-id>/private-<key>/basic.ics"
+      - name: "Family"
+        url: "webcal://p44-caldav.icloud.com/published/2/<token>"
 ```
 
 ## Connecting a TRMNL device
@@ -212,3 +256,6 @@ devices fetch are always reasonably fresh.
   or set `font_name` to a valid Google Fonts family.
 - **A plugin shows stale or empty data** — check the plugin's API key/symbols and look at the logs. Set
   `debug: true` for verbose output; device-side logs arrive via `POST /api/log`.
+- **Calendar screen says "<name> unavailable"** — that feed URL returned an error. Check it opens in a browser
+  (for Apple links, replace `webcal://` with `https://`) and that the calendar is still shared. Events on the
+  wrong day usually mean `timezone` is unset and the server runs in UTC.

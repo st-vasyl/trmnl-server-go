@@ -10,12 +10,17 @@ import (
 	"trmnl-server-go/pkg/v1/fonts"
 	"trmnl-server-go/pkg/v1/handler"
 	"trmnl-server-go/pkg/v1/plugin"
+	"trmnl-server-go/pkg/v1/plugins/calendar"
 	"trmnl-server-go/pkg/v1/plugins/crypto"
 	"trmnl-server-go/pkg/v1/plugins/currency"
 	"trmnl-server-go/pkg/v1/plugins/stocks"
 	"trmnl-server-go/pkg/v1/plugins/weather"
 	"trmnl-server-go/pkg/v1/render"
 	"trmnl-server-go/pkg/v1/worker"
+
+	// Embedded zone database so calendar time zones resolve on hosts without
+	// /usr/share/zoneinfo (the release binaries are fully static).
+	_ "time/tzdata"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -129,6 +134,17 @@ func buildPlugins(c *config.Config) ([]plugin.Plugin, error) {
 			screens = append(screens, s.Pairs)
 		}
 		p, err := currency.New(screens)
+		if err != nil {
+			return nil, err
+		}
+		plugins = append(plugins, p)
+	}
+	if enabled["calendar"] {
+		sources := make([]calendar.Source, 0, len(c.Plugins.Calendar.Calendars))
+		for _, s := range c.Plugins.Calendar.Calendars {
+			sources = append(sources, calendar.Source{Name: s.Name, URL: s.URL})
+		}
+		p, err := calendar.New(c.Plugins.Calendar.Timezone, c.Plugins.Calendar.Layout, sources)
 		if err != nil {
 			return nil, err
 		}

@@ -43,6 +43,7 @@ type Plugins struct {
 	Coingecko  Coingecko  `yaml:"coingecko"`
 	Weather    Weather    `yaml:"weather"`
 	Currency   Currency   `yaml:"currency"`
+	Calendar   Calendar   `yaml:"calendar"`
 }
 
 type Twelvedata struct {
@@ -67,6 +68,21 @@ type Currency struct {
 // CurrencyScreen holds up to four pairs such as "EUR/PLN".
 type CurrencyScreen struct {
 	Pairs []string `yaml:"pairs"`
+}
+
+// Calendar configures the calendar plugin: the zone that defines "today", the
+// screen layout ("timeline" by default, or "list") and the ICS feeds merged
+// into the day view.
+type Calendar struct {
+	Timezone  string           `yaml:"timezone"`
+	Layout    string           `yaml:"layout"`
+	Calendars []CalendarSource `yaml:"calendars"`
+}
+
+// CalendarSource is one ICS feed shown under a short label.
+type CalendarSource struct {
+	Name string `yaml:"name"`
+	URL  string `yaml:"url"`
 }
 
 func GetConfig(filename string) (Config, error) {

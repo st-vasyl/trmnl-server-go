@@ -45,6 +45,9 @@ const (
 	TrendUp   = "trendup"
 	TrendDown = "trenddown"
 	TrendFlat = "trendflat"
+
+	Calendar = "calendar"
+	Warning  = "warning"
 )
 
 // codepoints maps each semantic icon name to its Material Symbols Outlined
@@ -83,6 +86,9 @@ var codepoints = map[string]rune{
 	TrendUp:   0xe8e5, // trending_up
 	TrendDown: 0xe8e3, // trending_down
 	TrendFlat: 0xe8e4, // trending_flat
+
+	Calendar: 0xe935, // calendar_today
+	Warning:  0xf083, // warning
 }
 
 // Trend picks the up, down, or flat glyph for a signed change. Moves smaller

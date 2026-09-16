@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"trmnl-server-go/pkg/v1/icons"
 	"trmnl-server-go/pkg/v1/render"
 )
 
@@ -239,24 +238,6 @@ func TestFormatChange_SignedValueAndPercent(t *testing.T) {
 	for _, tc := range tests {
 		if got := formatChange(tc.change, tc.pct); got != tc.want {
 			t.Errorf("formatChange(%v, %v) = %q, want %q", tc.change, tc.pct, got, tc.want)
-		}
-	}
-}
-
-func TestTrendIcon(t *testing.T) {
-	tests := []struct {
-		in   float64
-		want string
-	}{
-		{1.74, icons.TrendUp},
-		{-1.74, icons.TrendDown},
-		{0, icons.TrendFlat},
-		{0.004, icons.TrendFlat},
-		{-0.004, icons.TrendFlat},
-	}
-	for _, tc := range tests {
-		if got := trendIcon(tc.in); got != tc.want {
-			t.Errorf("trendIcon(%v) = %q, want %q", tc.in, got, tc.want)
 		}
 	}
 }

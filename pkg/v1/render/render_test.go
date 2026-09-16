@@ -181,26 +181,6 @@ func TestAddImageVoltage_DispatchesByThreshold(t *testing.T) {
 	}
 }
 
-func TestGenPoints_MapsRecordsToXYs(t *testing.T) {
-	records := ChartRecords{
-		ChartRecord: []ChartRecord{
-			{T: 1_700_000_000_000, V: 1.5},
-			{T: 1_700_003_600_000, V: 2.5},
-		},
-	}
-	pts := genPoints(records)
-	if len(pts) != 2 {
-		t.Fatalf("len = %d, want 2", len(pts))
-	}
-	// T is in milliseconds; X is seconds.
-	if pts[0].X != 1_700_000_000 {
-		t.Errorf("pts[0].X = %v, want 1700000000", pts[0].X)
-	}
-	if pts[0].Y != 1.5 || pts[1].Y != 2.5 {
-		t.Errorf("Y values = %v, %v; want 1.5, 2.5", pts[0].Y, pts[1].Y)
-	}
-}
-
 func TestSparseTicks_FiltersByRange(t *testing.T) {
 	st := sparseTicks{labels: map[float64]string{
 		0:  "a",
@@ -221,20 +201,6 @@ func TestSparseTicks_FiltersByRange(t *testing.T) {
 
 	if out := st.Ticks(100, 200); len(out) != 0 {
 		t.Errorf("expected no ticks outside range, got %v", out)
-	}
-}
-
-func TestAddChart_DrawsWithoutError(t *testing.T) {
-	img := NewImage(800, 480)
-	records := ChartRecords{
-		ChartRecord: []ChartRecord{
-			{T: 1_700_000_000_000, V: 100.0},
-			{T: 1_700_003_600_000, V: 110.0},
-			{T: 1_700_007_200_000, V: 105.0},
-		},
-	}
-	if err := AddChart(img, records, 400, 200, image.Point{0, 0}); err != nil {
-		t.Fatalf("AddChart: %v", err)
 	}
 }
 

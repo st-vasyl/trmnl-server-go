@@ -10,7 +10,6 @@ import (
 	"image/png"
 	"net/http"
 	"os"
-	"time"
 	"trmnl-server-go/pkg/v1/icons"
 
 	"github.com/rs/zerolog/log"
@@ -18,8 +17,6 @@ import (
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
 	"gonum.org/v1/plot"
-	"gonum.org/v1/plot/plotter"
-	"gonum.org/v1/plot/vg"
 )
 
 var cachedFont *opentype.Font
@@ -40,15 +37,6 @@ func getFont() (*opentype.Font, error) {
 		return nil, fmt.Errorf("font not initialized: call render.SetFont first")
 	}
 	return cachedFont, nil
-}
-
-type ChartRecords struct {
-	ChartRecord []ChartRecord
-}
-
-type ChartRecord struct {
-	T float64
-	V float64
 }
 
 // sparseTicks is a plot.Ticker that places a labelled major tick only at the
@@ -125,46 +113,6 @@ func WriteFile(filename string, img *image.RGBA, voltage float32) error {
 		return err
 	}
 
-	return nil
-}
-
-func genPoints(r ChartRecords) plotter.XYs {
-	pts := make(plotter.XYs, len(r.ChartRecord))
-	i := 0
-	for _, v := range r.ChartRecord {
-
-		t := time.UnixMilli(int64(v.T))
-		pts[i].X = float64(t.Unix())
-		pts[i].Y = v.V
-		i++
-	}
-	return pts
-}
-
-func AddChart(img *image.RGBA, r ChartRecords, chartWidth, chartHeight int, point image.Point) error {
-	p := plot.New()
-	xticks := plot.TimeTicks{Format: "2006-01-02\n15:04"}
-	p.X.Tick.Marker = xticks
-	p.Add(plotter.NewGrid())
-	data := genPoints(r)
-
-	line, _, err := plotter.NewLinePoints(data)
-	if err != nil {
-		return err
-	}
-	line.Color = color.RGBA{A: 255}
-	p.Add(line)
-
-	buf := bytes.NewBuffer(nil)
-	writerTo, err := p.WriterTo(vg.Points(float64(chartWidth)), vg.Points(float64(chartHeight)), "png")
-	writerTo.WriteTo(buf)
-
-	chart, _, err := image.Decode(buf)
-	if err != nil {
-		return err
-	}
-
-	draw.Draw(img, img.Bounds(), chart, point, draw.Over)
 	return nil
 }
 

@@ -4,6 +4,8 @@ A self-hosted backend for [TRMNL](https://usetrmnl.com/) e-ink display devices (
 It's a single binary self-hosted server without any additional dependencies (except of course fetching data). 
 You can run it either as binary or docker container on your local machine, Raspberry Pi or even router if you have ssh access.
 
+**Important**: At this moment only devices with resolution 800×480 and trmnl open source firmware are supported.
+
 ## Features
 
 - **Built-in plugins**

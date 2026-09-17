@@ -10,7 +10,7 @@ func TestBuildPlugins_EnablesCurrencyFromConfig(t *testing.T) {
 	c := &config.Config{}
 	c.Common.EnabledPlugins = []string{"weather", "currency"}
 	c.Plugins.Weather.Location = "Kyiv"
-	c.Plugins.Currency.Screens = []config.CurrencyScreen{{Pairs: []string{"EUR/PLN", "USD/PLN"}}}
+	c.Plugins.Currency.Screens = []config.CurrencyScreen{{Pairs: []string{"EUR/UAH", "USD/UAH"}}}
 
 	plugins, err := buildPlugins(c)
 	if err != nil {

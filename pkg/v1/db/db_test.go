@@ -56,8 +56,12 @@ func TestOpen_InvalidPathReturnsError(t *testing.T) {
 func TestRegisterDevice_RoundTrip(t *testing.T) {
 	s := freshStore(t)
 
-	if err := s.RegisterDevice("dev-1", "key-1", "weather"); err != nil {
+	key, err := s.RegisterDevice("dev-1", "key-1", "weather")
+	if err != nil {
 		t.Fatalf("RegisterDevice: %v", err)
+	}
+	if key != "key-1" {
+		t.Errorf("returned key = %q, want the key that was passed in", key)
 	}
 
 	screen, err := s.GetDeviceScreen("dev-1")
@@ -80,7 +84,8 @@ func TestRegisterDevice_RoundTrip(t *testing.T) {
 func TestRegisterDevice_GeneratesApiKeyWhenEmpty(t *testing.T) {
 	s := freshStore(t)
 
-	if err := s.RegisterDevice("dev-1", "", "weather"); err != nil {
+	key, err := s.RegisterDevice("dev-1", "", "weather")
+	if err != nil {
 		t.Fatalf("RegisterDevice: %v", err)
 	}
 	keys, err := s.GetDeviceList()
@@ -92,6 +97,11 @@ func TestRegisterDevice_GeneratesApiKeyWhenEmpty(t *testing.T) {
 	}
 	if len(keys[0]) != 16 {
 		t.Errorf("generated api key length = %d, want 16", len(keys[0]))
+	}
+	// The caller must learn the generated key: it has to go back to the
+	// device in the setup response.
+	if key != keys[0] {
+		t.Errorf("returned key = %q, want the stored key %q", key, keys[0])
 	}
 }
 
@@ -105,7 +115,7 @@ func TestGetDeviceScreen_UnknownDeviceReturnsError(t *testing.T) {
 
 func TestUpdateDevice_PersistsVoltageAndScreen(t *testing.T) {
 	s := freshStore(t)
-	if err := s.RegisterDevice("dev-1", "key-1", "weather"); err != nil {
+	if _, err := s.RegisterDevice("dev-1", "key-1", "weather"); err != nil {
 		t.Fatalf("RegisterDevice: %v", err)
 	}
 
@@ -140,7 +150,7 @@ func TestGetDeviceVoltage_UnknownKeyReturnsError(t *testing.T) {
 func TestGetDeviceList_MultipleDevices(t *testing.T) {
 	s := freshStore(t)
 	for _, k := range []string{"a", "b", "c"} {
-		if err := s.RegisterDevice("dev-"+k, "key-"+k, "weather"); err != nil {
+		if _, err := s.RegisterDevice("dev-"+k, "key-"+k, "weather"); err != nil {
 			t.Fatalf("RegisterDevice %s: %v", k, err)
 		}
 	}

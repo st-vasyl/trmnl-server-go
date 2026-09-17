@@ -10,6 +10,7 @@ import (
 	"image/png"
 	"net/http"
 	"os"
+	"path/filepath"
 	"trmnl-server-go/pkg/v1/icons"
 
 	"github.com/rs/zerolog/log"
@@ -93,26 +94,40 @@ func AddText(img *image.RGBA, text string, point image.Point, col color.Color, f
 }
 
 // Write image changes to the file
+// WriteFile stamps the battery icon, converts to grayscale and writes the PNG.
+// The file is written to a temp name in the same directory and renamed into
+// place, so a device downloading the previous PNG never sees a truncated or
+// half-written file while the worker or an on-demand render replaces it.
 func WriteFile(filename string, img *image.RGBA, voltage float32) error {
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-
 	if err := AddImageVoltage(img, voltage, image.Point{-750, -1}, 40); err != nil {
 		return err
 	}
-
 	bw := ConvertToGray(img)
+
+	f, err := os.CreateTemp(filepath.Dir(filename), filepath.Base(filename)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	tmp := f.Name()
 	if err := png.Encode(f, bw); err != nil {
 		f.Close()
+		os.Remove(tmp)
 		return err
 	}
-
+	// CreateTemp uses 0600; keep the served files world-readable like Create did.
+	if err := f.Chmod(0644); err != nil {
+		f.Close()
+		os.Remove(tmp)
+		return err
+	}
 	if err := f.Close(); err != nil {
+		os.Remove(tmp)
 		return err
 	}
-
+	if err := os.Rename(tmp, filename); err != nil {
+		os.Remove(tmp)
+		return err
+	}
 	return nil
 }
 

@@ -43,7 +43,9 @@ func NewMux(version string, c *config.Config, plugins []plugin.Plugin, store *db
 		if len(firstScreen) > 0 {
 			defaultScreen = firstScreen[0]
 		}
-		store.RegisterDevice(deviceId, apiKey, defaultScreen)
+		// The firmware sends no Access-Token at setup time; it adopts the
+		// api_key returned here, so the response must carry the stored key.
+		apiKey, _ = store.RegisterDevice(deviceId, apiKey, defaultScreen)
 
 		log.Info().Str("func", "setup").Str("api-key", apiKey).Str("id", deviceId).Str("voltage", voltage).Msg("Device setup requested")
 

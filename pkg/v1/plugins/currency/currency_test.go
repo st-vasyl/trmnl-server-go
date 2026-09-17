@@ -23,24 +23,24 @@ func withBaseURL(t *testing.T, srv *httptest.Server) {
 }
 
 // seriesFixture mirrors a real Frankfurter v2 time-series response (one row
-// per date and quote) for the currencies used by the first example screen.
+// per date and quote) for one screen of four pairs.
 const seriesFixture = `[
 	{"date":"2026-09-11","base":"EUR","quote":"CHF","rate":0.9402},
 	{"date":"2026-09-11","base":"EUR","quote":"GBP","rate":0.8511},
-	{"date":"2026-09-11","base":"EUR","quote":"PLN","rate":4.325},
+	{"date":"2026-09-11","base":"EUR","quote":"UAH","rate":4.325},
 	{"date":"2026-09-11","base":"EUR","quote":"USD","rate":1.1610},
 	{"date":"2026-09-14","base":"EUR","quote":"CHF","rate":0.9430},
 	{"date":"2026-09-14","base":"EUR","quote":"GBP","rate":0.8549},
-	{"date":"2026-09-14","base":"EUR","quote":"PLN","rate":4.3418},
+	{"date":"2026-09-14","base":"EUR","quote":"UAH","rate":4.3418},
 	{"date":"2026-09-14","base":"EUR","quote":"USD","rate":1.1560},
 	{"date":"2026-09-15","base":"EUR","quote":"CHF","rate":0.9441},
 	{"date":"2026-09-15","base":"EUR","quote":"GBP","rate":0.8558},
-	{"date":"2026-09-15","base":"EUR","quote":"PLN","rate":4.34},
+	{"date":"2026-09-15","base":"EUR","quote":"UAH","rate":4.34},
 	{"date":"2026-09-15","base":"EUR","quote":"USD","rate":1.1539}
 ]`
 
 func TestNew_NamesScreensByPosition(t *testing.T) {
-	p, err := New([][]string{{"EUR/PLN"}, {"USD/PLN", "GBP/PLN"}})
+	p, err := New([][]string{{"EUR/UAH"}, {"USD/UAH", "GBP/UAH"}})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestNew_NamesScreensByPosition(t *testing.T) {
 }
 
 func TestNew_AcceptsFourLowercasePairs(t *testing.T) {
-	if _, err := New([][]string{{"eur/pln", "usd/pln", "gbp/pln", "chf/pln"}}); err != nil {
+	if _, err := New([][]string{{"eur/uah", "usd/uah", "gbp/uah", "chf/uah"}}); err != nil {
 		t.Fatalf("New: %v", err)
 	}
 }
@@ -80,11 +80,11 @@ func TestNew_RejectsInvalidScreens(t *testing.T) {
 	}{
 		{"no screens", nil},
 		{"empty screen", [][]string{{}}},
-		{"five pairs", [][]string{{"EUR/PLN", "USD/PLN", "GBP/PLN", "CHF/PLN", "JPY/PLN"}}},
-		{"missing slash", [][]string{{"EURPLN"}}},
+		{"five pairs", [][]string{{"EUR/UAH", "USD/UAH", "GBP/UAH", "CHF/UAH", "JPY/UAH"}}},
+		{"missing slash", [][]string{{"EURUAH"}}},
 		{"unknown code", [][]string{{"EUR/XXX"}}},
 		{"same code twice", [][]string{{"EUR/EUR"}}},
-		{"bad pair on second screen", [][]string{{"EUR/PLN"}, {"EUR/PLN", "bogus"}}},
+		{"bad pair on second screen", [][]string{{"EUR/UAH"}, {"EUR/UAH", "bogus"}}},
 	}
 	for _, tc := range tests {
 		if _, err := New(tc.screens); err == nil {
@@ -94,25 +94,25 @@ func TestNew_RejectsInvalidScreens(t *testing.T) {
 }
 
 func TestParsePair_NormalizesCase(t *testing.T) {
-	got, err := parsePair(" eur/pln ")
+	got, err := parsePair(" eur/uah ")
 	if err != nil {
 		t.Fatalf("parsePair: %v", err)
 	}
-	if got.Base != "EUR" || got.Quote != "PLN" {
-		t.Errorf("parsePair = %+v, want Base EUR Quote PLN", got)
+	if got.Base != "EUR" || got.Quote != "UAH" {
+		t.Errorf("parsePair = %+v, want Base EUR Quote UAH", got)
 	}
 }
 
 func TestCrossRate_DerivesAnyPairFromEURRates(t *testing.T) {
-	rates := map[string]float64{"PLN": 4.0, "USD": 2.0}
+	rates := map[string]float64{"UAH": 4.0, "USD": 2.0}
 	tests := []struct {
 		pair Pair
 		want float64
 	}{
-		{Pair{"EUR", "PLN"}, 4.0},
-		{Pair{"PLN", "EUR"}, 0.25},
-		{Pair{"USD", "PLN"}, 2.0},
-		{Pair{"PLN", "USD"}, 0.5},
+		{Pair{"EUR", "UAH"}, 4.0},
+		{Pair{"UAH", "EUR"}, 0.25},
+		{Pair{"USD", "UAH"}, 2.0},
+		{Pair{"UAH", "USD"}, 0.5},
 		{Pair{"USD", "EUR"}, 0.5},
 	}
 	for _, tc := range tests {
@@ -128,19 +128,19 @@ func TestCrossRate_DerivesAnyPairFromEURRates(t *testing.T) {
 }
 
 func TestCrossRate_MissingCodeIsAnError(t *testing.T) {
-	if _, err := crossRate(map[string]float64{"PLN": 4.0}, Pair{"USD", "PLN"}); err == nil {
+	if _, err := crossRate(map[string]float64{"UAH": 4.0}, Pair{"USD", "UAH"}); err == nil {
 		t.Fatal("expected error when a code is missing from the rates")
 	}
 }
 
 func TestComputeStats_OrdersDatesAndDerivesChange(t *testing.T) {
 	s := series{Rates: map[string]map[string]float64{
-		"2026-09-03": {"PLN": 4.41},
-		"2026-09-01": {"PLN": 4.0},
-		"2026-09-02": {"PLN": 4.2},
+		"2026-09-03": {"UAH": 4.41},
+		"2026-09-01": {"UAH": 4.0},
+		"2026-09-02": {"UAH": 4.2},
 	}}
 
-	got, err := computeStats(s, Pair{"EUR", "PLN"})
+	got, err := computeStats(s, Pair{"EUR", "UAH"})
 	if err != nil {
 		t.Fatalf("computeStats: %v", err)
 	}
@@ -164,11 +164,11 @@ func TestComputeStats_OrdersDatesAndDerivesChange(t *testing.T) {
 
 func TestComputeStats_CrossPair(t *testing.T) {
 	s := series{Rates: map[string]map[string]float64{
-		"2026-09-01": {"USD": 2.0, "PLN": 4.0},
-		"2026-09-02": {"USD": 2.0, "PLN": 5.0},
+		"2026-09-01": {"USD": 2.0, "UAH": 4.0},
+		"2026-09-02": {"USD": 2.0, "UAH": 5.0},
 	}}
 
-	got, err := computeStats(s, Pair{"USD", "PLN"})
+	got, err := computeStats(s, Pair{"USD", "UAH"})
 	if err != nil {
 		t.Fatalf("computeStats: %v", err)
 	}
@@ -181,9 +181,9 @@ func TestComputeStats_CrossPair(t *testing.T) {
 }
 
 func TestComputeStats_SingleDateHasZeroChange(t *testing.T) {
-	s := series{Rates: map[string]map[string]float64{"2026-09-01": {"PLN": 4.0}}}
+	s := series{Rates: map[string]map[string]float64{"2026-09-01": {"UAH": 4.0}}}
 
-	got, err := computeStats(s, Pair{"EUR", "PLN"})
+	got, err := computeStats(s, Pair{"EUR", "UAH"})
 	if err != nil {
 		t.Fatalf("computeStats: %v", err)
 	}
@@ -193,14 +193,14 @@ func TestComputeStats_SingleDateHasZeroChange(t *testing.T) {
 }
 
 func TestComputeStats_Errors(t *testing.T) {
-	if _, err := computeStats(series{}, Pair{"EUR", "PLN"}); err == nil {
+	if _, err := computeStats(series{}, Pair{"EUR", "UAH"}); err == nil {
 		t.Error("expected error for a series with no dates")
 	}
 	missing := series{Rates: map[string]map[string]float64{
-		"2026-09-01": {"PLN": 4.0},
+		"2026-09-01": {"UAH": 4.0},
 		"2026-09-02": {},
 	}}
-	if _, err := computeStats(missing, Pair{"EUR", "PLN"}); err == nil {
+	if _, err := computeStats(missing, Pair{"EUR", "UAH"}); err == nil {
 		t.Error("expected error when a date lacks the requested code")
 	}
 }
@@ -262,11 +262,11 @@ func TestScreenIndex(t *testing.T) {
 }
 
 func TestScreenCurrencies_SortedUniqueWithoutEUR(t *testing.T) {
-	pairs := []Pair{{"EUR", "PLN"}, {"USD", "PLN"}, {"PLN", "CHF"}}
+	pairs := []Pair{{"EUR", "UAH"}, {"USD", "UAH"}, {"UAH", "CHF"}}
 
 	got := screenCurrencies(pairs)
 
-	want := []string{"CHF", "PLN", "USD"}
+	want := []string{"CHF", "UAH", "USD"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("screenCurrencies = %v, want %v", got, want)
 	}
@@ -281,8 +281,8 @@ func TestFetchSeries_RequestsEURBasedRangeAndParsesRates(t *testing.T) {
 		if got := q.Get("base"); got != "EUR" {
 			t.Errorf("base = %q, want EUR", got)
 		}
-		if got := q.Get("quotes"); got != "PLN,USD" {
-			t.Errorf("quotes = %q, want PLN,USD", got)
+		if got := q.Get("quotes"); got != "UAH,USD" {
+			t.Errorf("quotes = %q, want UAH,USD", got)
 		}
 		if got := q.Get("from"); got != "2026-08-17" {
 			t.Errorf("from = %q, want 2026-08-17", got)
@@ -297,15 +297,15 @@ func TestFetchSeries_RequestsEURBasedRangeAndParsesRates(t *testing.T) {
 
 	from := time.Date(2026, 8, 17, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2026, 9, 16, 12, 30, 0, 0, time.UTC)
-	s, err := fetchSeries([]string{"PLN", "USD"}, from, to)
+	s, err := fetchSeries([]string{"UAH", "USD"}, from, to)
 	if err != nil {
 		t.Fatalf("fetchSeries: %v", err)
 	}
 	if len(s.Rates) != 3 {
 		t.Fatalf("len(Rates) = %d, want 3", len(s.Rates))
 	}
-	if got := s.Rates["2026-09-15"]["PLN"]; !near(got, 4.34) {
-		t.Errorf("Rates[2026-09-15][PLN] = %v, want 4.34", got)
+	if got := s.Rates["2026-09-15"]["UAH"]; !near(got, 4.34) {
+		t.Errorf("Rates[2026-09-15][UAH] = %v, want 4.34", got)
 	}
 }
 
@@ -325,7 +325,7 @@ func TestFetchSeries_Errors(t *testing.T) {
 		}))
 		withBaseURL(t, srv)
 
-		_, err := fetchSeries([]string{"PLN"}, time.Now().AddDate(0, 0, -30), time.Now())
+		_, err := fetchSeries([]string{"UAH"}, time.Now().AddDate(0, 0, -30), time.Now())
 		srv.Close()
 		if err == nil {
 			t.Errorf("%s: expected error, got nil", tc.name)
@@ -340,7 +340,7 @@ func TestRender_UnknownScreenDoesNotHitNetwork(t *testing.T) {
 	defer srv.Close()
 	withBaseURL(t, srv)
 
-	p, err := New([][]string{{"EUR/PLN"}})
+	p, err := New([][]string{{"EUR/UAH"}})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -356,7 +356,7 @@ func TestRender_FetchFailureIsReturned(t *testing.T) {
 	defer srv.Close()
 	withBaseURL(t, srv)
 
-	p, err := New([][]string{{"EUR/PLN"}})
+	p, err := New([][]string{{"EUR/UAH"}})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -394,7 +394,7 @@ func TestRender_WritesFullScreenPNG(t *testing.T) {
 	defer srv.Close()
 	withBaseURL(t, srv)
 
-	p, err := New([][]string{{"EUR/PLN", "USD/PLN", "GBP/PLN", "CHF/PLN"}})
+	p, err := New([][]string{{"EUR/UAH", "USD/UAH", "GBP/UAH", "CHF/UAH"}})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

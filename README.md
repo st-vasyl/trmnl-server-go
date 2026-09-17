@@ -22,7 +22,7 @@ Each enabled plugin renders an 800×480 screen for the device. Here's what the b
 
 | Weather | Stocks (TwelveData) | Crypto (CoinGecko) | Currency (Frankfurter) | Calendar (ICS feeds) |
 |:---:|:---:|:---:|:---:|:---:|
-| ![Weather screen — current conditions and forecast](example/weather.png) | ![Stocks screen — AAPL quote and 7-day close-price chart](example/twelvedata_AAPL.png) | ![Crypto screen — Bitcoin 24h price chart](example/coingecko_bitcoin.png) | ![Currency screen — four PLN pairs with daily change and 30-day trend](example/currency.png) | ![Calendar screen — today's events from two feeds on an hour grid](example/calendar.png) |
+| ![Weather screen — current conditions and forecast](example/weather.png) | ![Stocks screen — AAPL quote and 7-day close-price chart](example/twelvedata_AAPL.png) | ![Crypto screen — Bitcoin 24h price chart](example/coingecko_bitcoin.png) | ![Currency screen — four UAH pairs with daily change and 30-day trend](example/currency.png) | ![Calendar screen — today's events from two feeds on an hour grid](example/calendar.png) |
 
 ## Requirements
 
@@ -132,11 +132,11 @@ Only the plugins you list in `enabled_plugins` need a config block.
 |--------------|----------------------|------------------------------------------|
 | `twelvedata` | `symbols`            | Ticker symbols, e.g. `["googl", "nvda"]`.|
 | `coingecko`  | `symbols`            | Coin IDs, e.g. `["bitcoin"]`.            |
-| `weather`    | `location`, `temperature_unit`, `wind_speed_unit` | City name, e.g. `Wroclaw`. Optional `temperature_unit` is `celsius` (default) or `fahrenheit`; optional `wind_speed_unit` is `ms` (default), `kmh`, `mph` or `kn`. An unknown unit stops the server at startup. |
-| `currency`   | `screens`            | List of screens, each with `pairs` of 1–4 currency pairs like `EUR/PLN`. Screens rotate as `currency_1`, `currency_2`, … |
-| `calendar`   | `timezone`, `layout`, `calendars` | IANA zone that defines "today" (e.g. `Europe/Warsaw`; defaults to the server's local zone), the screen `layout` (`timeline`, the default hour grid, or `list`, one row per event) and a list of feeds, each with a `name` (shown as a tag) and an ICS `url` (`https://` or `webcal://`). |
+| `weather`    | `location`, `temperature_unit`, `wind_speed_unit` | City name, e.g. `Kyiv`. Optional `temperature_unit` is `celsius` (default) or `fahrenheit`; optional `wind_speed_unit` is `ms` (default), `kmh`, `mph` or `kn`. An unknown unit stops the server at startup. |
+| `currency`   | `screens`            | List of screens, each with `pairs` of 1–4 currency pairs like `EUR/UAH`. Screens rotate as `currency_1`, `currency_2`, … |
+| `calendar`   | `timezone`, `layout`, `calendars` | IANA zone that defines "today" (e.g. `Europe/Kyiv`; defaults to the server's local zone), the screen `layout` (`timeline`, the default hour grid, or `list`, one row per event) and a list of feeds, each with a `name` (shown as a tag) and an ICS `url` (`https://` or `webcal://`). |
 
-Currency pairs read as "1 unit of the first currency in the second", so `EUR/PLN` shows how many PLN one EUR buys.
+Currency pairs read as "1 unit of the first currency in the second", so `EUR/UAH` shows how many UAH one EUR buys.
 Rates come from the Frankfurter v2 API, which blends about a hundred central banks into daily rates for 165
 currencies, so codes the ECB never published (UAH, GEL, KZT, …) work too. An unknown code or more than four pairs
 on a screen stops the server at startup with a clear error.
@@ -170,7 +170,7 @@ Two things to know:
   address can be reset from the same settings page, and an Apple calendar can be un-published.
 
 Set `timezone` to your IANA zone. Without it the plugin uses the server's local zone, which inside Docker is UTC
-unless you pass `-e TZ=Europe/Warsaw` (or similar). A feed that fails to download is named in the screen's footer
+unless you pass `-e TZ=Europe/Kyiv` (or similar). A feed that fails to download is named in the screen's footer
 while the other feeds still render; the screen is skipped only when every feed fails.
 
 Example:
@@ -198,7 +198,7 @@ plugins:
     wind_speed_unit: ms         # or kmh, mph, kn
   currency:
     screens:
-      - pairs: ["EUR/PLN", "USD/PLN", "GBP/PLN", "CHF/PLN"]
+      - pairs: ["EUR/UAH", "USD/UAH", "GBP/UAH", "PLN/UAH"]
       - pairs: ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF"]
   # Add "calendar" to enabled_plugins once the feed URLs below are your own.
   calendar:
@@ -248,7 +248,10 @@ devices fetch are always reasonably fresh.
 
 ## Troubleshooting
 
-- **After registering NEW device it can't load images** - Restart the server. Auto update plugins data after registering new device is on TODO. 
+- **A newly registered device shows "image download failed"** — the requested screen is rendered on demand
+  during the first `/api/display`, so this should no longer need a restart. If it persists, the plugin for
+  the first screen is failing; check the server log for `On-demand render failed`. A device that was set up
+  against an older server build may have stored an empty api key; factory-reset it so it runs setup again.
 - **Device shows nothing / can't load images** — `external_url` is almost always the cause. Confirm it's the
   host:port the device can actually reach, that `port` matches, and that no firewall blocks it.
 - **Screens render but icons are missing** — icons are rendered from the Material Symbols font, downloaded

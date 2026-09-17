@@ -2,7 +2,9 @@ package screens
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"trmnl-server-go/pkg/v1/config"
 	"trmnl-server-go/pkg/v1/db"
@@ -16,9 +18,58 @@ type fakePlugin struct {
 	screens []string
 }
 
-func (f *fakePlugin) Name() string                                     { return f.name }
-func (f *fakePlugin) Screens() []string                                { return f.screens }
+func (f *fakePlugin) Name() string                                      { return f.name }
+func (f *fakePlugin) Screens() []string                                 { return f.screens }
 func (f *fakePlugin) Render(screen, path string, voltage float32) error { return nil }
+
+type renderCall struct {
+	screen  string
+	voltage float32
+}
+
+// writingPlugin records every Render call and writes a placeholder file, so
+// tests can check both what was rendered and that the PNG path exists.
+type writingPlugin struct {
+	name    string
+	screens []string
+
+	mu    sync.Mutex
+	calls []renderCall
+}
+
+func (p *writingPlugin) Name() string      { return p.name }
+func (p *writingPlugin) Screens() []string { return p.screens }
+func (p *writingPlugin) Render(screen, outputPath string, voltage float32) error {
+	p.mu.Lock()
+	p.calls = append(p.calls, renderCall{screen, voltage})
+	p.mu.Unlock()
+	return os.WriteFile(outputPath, []byte("png"), 0644)
+}
+
+func (p *writingPlugin) recorded() []renderCall {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]renderCall(nil), p.calls...)
+}
+
+// chdirWithPublic runs the rest of the test from a temp working directory
+// containing public/, mirroring the server's CWD-relative layout. Background
+// renders are waited for before the CWD is restored so nothing lands in the
+// package directory.
+func chdirWithPublic(t *testing.T) {
+	t.Helper()
+	t.Chdir(t.TempDir())
+	t.Cleanup(WaitForRenders)
+	if err := os.MkdirAll("public", 0755); err != nil {
+		t.Fatalf("mkdir public: %v", err)
+	}
+}
+
+func fileExists(t *testing.T, path string) bool {
+	t.Helper()
+	_, err := os.Stat(path)
+	return err == nil
+}
 
 func TestGetScreenList_FlattensAllPlugins(t *testing.T) {
 	plugins := []plugin.Plugin{
@@ -128,9 +179,110 @@ func TestRenderDisplay_NewDeviceGetsRegisteredAndAdvances(t *testing.T) {
 	}
 }
 
+func TestRenderDisplay_RendersRequestedScreenBeforeReturning(t *testing.T) {
+	chdirWithPublic(t)
+	store := openTestStore(t)
+
+	c := &config.Config{}
+	c.Common.ExternalURL = "host:8080"
+	c.Common.RefreshTime = 300
+	p := &writingPlugin{name: "p", screens: []string{"weather", "crypto"}}
+
+	RenderDisplay(c, []plugin.Plugin{p}, store, "dev-1", "key-1", "4.1")
+
+	// The screen named in image_url must exist the moment the response is
+	// built: the device downloads it immediately.
+	if !fileExists(t, "public/key-1_weather.png") {
+		t.Fatal("public/key-1_weather.png missing right after RenderDisplay returned")
+	}
+	calls := p.recorded()
+	if len(calls) == 0 || calls[0].screen != "weather" {
+		t.Fatalf("first Render call = %v, want the weather screen", calls)
+	}
+	if got := calls[0].voltage; got < 4.09 || got > 4.11 {
+		t.Errorf("voltage passed to Render = %v, want 4.1 from the Battery-Voltage header", got)
+	}
+
+	// The rest of the rotation is filled in the background so the next
+	// /api/display also finds its file.
+	WaitForRenders()
+	if !fileExists(t, "public/key-1_crypto.png") {
+		t.Error("public/key-1_crypto.png not rendered in the background")
+	}
+}
+
+func TestRenderDisplay_SkipsRenderWhenImageExists(t *testing.T) {
+	chdirWithPublic(t)
+	store := openTestStore(t)
+	if _, err := store.RegisterDevice("dev-1", "key-1", "crypto"); err != nil {
+		t.Fatalf("RegisterDevice: %v", err)
+	}
+	if err := os.WriteFile("public/key-1_crypto.png", []byte("old"), 0644); err != nil {
+		t.Fatalf("seed image: %v", err)
+	}
+
+	c := &config.Config{}
+	c.Common.ExternalURL = "host:8080"
+	p := &writingPlugin{name: "p", screens: []string{"weather", "crypto"}}
+
+	RenderDisplay(c, []plugin.Plugin{p}, store, "dev-1", "key-1", "4.1")
+	WaitForRenders()
+
+	if calls := p.recorded(); len(calls) != 0 {
+		t.Errorf("Render called %d times although the image already exists: %v", len(calls), calls)
+	}
+}
+
+func TestRenderScreen_UnknownScreenReturnsError(t *testing.T) {
+	p := &writingPlugin{name: "p", screens: []string{"a"}}
+	if err := RenderScreen([]plugin.Plugin{p}, "key-1", "zzz", 4.0); err == nil {
+		t.Fatal("expected an error for a screen no plugin provides")
+	}
+	if calls := p.recorded(); len(calls) != 0 {
+		t.Errorf("Render called for an unknown screen: %v", calls)
+	}
+}
+
+func TestRenderDevice_RendersEveryScreenOfEveryPlugin(t *testing.T) {
+	chdirWithPublic(t)
+	p1 := &writingPlugin{name: "p1", screens: []string{"a", "b"}}
+	p2 := &writingPlugin{name: "p2", screens: []string{"c"}}
+
+	RenderDevice([]plugin.Plugin{p1, p2}, "key-1", 4.0)
+
+	for _, f := range []string{"public/key-1_a.png", "public/key-1_b.png", "public/key-1_c.png"} {
+		if !fileExists(t, f) {
+			t.Errorf("%s not rendered", f)
+		}
+	}
+}
+
+func TestImagePath(t *testing.T) {
+	if got := ImagePath("key-1", "weather"); got != "public/key-1_weather.png" {
+		t.Errorf("ImagePath = %q, want public/key-1_weather.png", got)
+	}
+}
+
+func TestParseVoltage(t *testing.T) {
+	tests := []struct {
+		in   string
+		want float32
+	}{
+		{"4.1", 4.1},
+		{"", 0},
+		{"garbage", 0},
+	}
+	for _, tc := range tests {
+		got := parseVoltage(tc.in)
+		if d := got - tc.want; d > 0.001 || d < -0.001 {
+			t.Errorf("parseVoltage(%q) = %v, want %v", tc.in, got, tc.want)
+		}
+	}
+}
+
 func TestRenderDisplay_AdvancesExistingDevice(t *testing.T) {
 	store := openTestStore(t)
-	if err := store.RegisterDevice("dev-1", "key-1", "crypto"); err != nil {
+	if _, err := store.RegisterDevice("dev-1", "key-1", "crypto"); err != nil {
 		t.Fatalf("RegisterDevice: %v", err)
 	}
 

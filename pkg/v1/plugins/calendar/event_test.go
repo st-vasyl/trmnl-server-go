@@ -362,26 +362,26 @@ func TestEventsForDay_UnknownTZIDOnRecurringEventStillExpands(t *testing.T) {
 }
 
 func TestEventsForDay_RecurringKeepsWallClockAcrossDST(t *testing.T) {
-	warsaw := mustZone("Europe/Warsaw")
-	// Weekly at 09:00 since July (CEST); 4 November is after the switch to CET.
-	from := time.Date(2026, 11, 4, 0, 0, 0, 0, warsaw)
+	kyiv := mustZone("Europe/Kyiv")
+	// Weekly at 09:00 since July (EEST); 4 November is after the switch to EET.
+	from := time.Date(2026, 11, 4, 0, 0, 0, 0, kyiv)
 	cal := parseICS(t, ics(vevent(
 		"UID:dst",
-		"DTSTART;TZID=Europe/Warsaw:20260701T090000",
-		"DTEND;TZID=Europe/Warsaw:20260701T100000",
+		"DTSTART;TZID=Europe/Kyiv:20260701T090000",
+		"DTEND;TZID=Europe/Kyiv:20260701T100000",
 		"RRULE:FREQ=WEEKLY;BYDAY=WE",
 		"SUMMARY:Weekly",
 	)))
-	got := eventsForDay(cal, "Work", from, from.AddDate(0, 0, 1), warsaw)
+	got := eventsForDay(cal, "Work", from, from.AddDate(0, 0, 1), kyiv)
 	if len(got) != 1 || got[0].Start.Hour() != 9 {
 		t.Fatalf("got %+v, want one event at 09:00 local", got)
 	}
 }
 
 func TestEventsForDay_RecurringAllDayEndsAtNextMidnightAcrossDST(t *testing.T) {
-	warsaw := mustZone("Europe/Warsaw")
-	// 25 October 2026 is the 25-hour day when CEST ends.
-	from := time.Date(2026, 10, 25, 0, 0, 0, 0, warsaw)
+	kyiv := mustZone("Europe/Kyiv")
+	// 25 October 2026 is the 25-hour day when EEST ends.
+	from := time.Date(2026, 10, 25, 0, 0, 0, 0, kyiv)
 	to := from.AddDate(0, 0, 1)
 	cal := parseICS(t, ics(vevent(
 		"UID:sun",
@@ -389,7 +389,7 @@ func TestEventsForDay_RecurringAllDayEndsAtNextMidnightAcrossDST(t *testing.T) {
 		"RRULE:FREQ=WEEKLY;BYDAY=SU",
 		"SUMMARY:Sunday",
 	)))
-	got := eventsForDay(cal, "Home", from, to, warsaw)
+	got := eventsForDay(cal, "Home", from, to, kyiv)
 	if len(got) != 1 {
 		t.Fatalf("got %d events, want 1", len(got))
 	}

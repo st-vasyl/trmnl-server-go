@@ -231,6 +231,47 @@ func TestWriteFile_ProducesDecodablePNG(t *testing.T) {
 	}
 }
 
+// The worker and the on-demand render in the display handler can both rewrite
+// a PNG while a device is downloading it, so a write must never leave the
+// destination truncated or half-written: the old file stays until the new one
+// is complete.
+func TestWriteFile_KeepsExistingFileWhenEncodingFails(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.png")
+	if err := WriteFile(path, NewImage(10, 10), 4.0); err != nil {
+		t.Fatalf("initial WriteFile: %v", err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read initial file: %v", err)
+	}
+
+	// A 0x0 image cannot be PNG-encoded, so this write must fail...
+	if err := WriteFile(path, image.NewRGBA(image.Rect(0, 0, 0, 0)), 4.0); err == nil {
+		t.Fatal("expected WriteFile to fail for an empty image")
+	}
+
+	// ...and the previous file must be untouched, with nothing left behind.
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read file after failed write: %v", err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Errorf("failed write clobbered the existing file: %d bytes before, %d after", len(before), len(after))
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "out.png" {
+		var names []string
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Errorf("directory after failed write = %v, want only out.png", names)
+	}
+}
+
 func TestWriteFile_UnwritablePathReturnsError(t *testing.T) {
 	img := NewImage(50, 50)
 	if err := WriteFile("/this/dir/does/not/exist/out.png", img, 4.0); err == nil {

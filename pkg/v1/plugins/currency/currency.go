@@ -45,8 +45,8 @@ var knownCurrencies = map[string]bool{
 	"XPT": true, "YER": true, "ZAR": true, "ZMW": true, "ZWG": true,
 }
 
-// Pair is one currency pair: Base priced in Quote, so EUR/PLN is the number
-// of PLN one EUR buys.
+// Pair is one currency pair: Base priced in Quote, so EUR/UAH is the number
+// of UAH one EUR buys.
 type Pair struct {
 	Base  string
 	Quote string
@@ -60,7 +60,7 @@ type Plugin struct {
 }
 
 // New validates the configured screens, a list of pair lists such as
-// [["EUR/PLN", "USD/PLN"]], and returns the plugin. It fails on an empty
+// [["EUR/UAH", "USD/UAH"]], and returns the plugin. It fails on an empty
 // configuration, an empty screen, more than four pairs on one screen, or any
 // malformed or unknown pair.
 func New(screens [][]string) (*Plugin, error) {
@@ -141,11 +141,11 @@ func (p *Plugin) Render(screen, outputPath string, voltage float32) error {
 	return renderScreen(pairs, stats, outputPath, voltage)
 }
 
-// parsePair parses "eur/pln" into Pair{EUR, PLN}, validating both codes.
+// parsePair parses "eur/uah" into Pair{EUR, UAH}, validating both codes.
 func parsePair(s string) (Pair, error) {
 	base, quote, ok := strings.Cut(strings.ToUpper(strings.TrimSpace(s)), "/")
 	if !ok {
-		return Pair{}, fmt.Errorf("pair %q must look like EUR/PLN", s)
+		return Pair{}, fmt.Errorf("pair %q must look like EUR/UAH", s)
 	}
 	base, quote = strings.TrimSpace(base), strings.TrimSpace(quote)
 	for _, code := range []string{base, quote} {

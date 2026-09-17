@@ -10,7 +10,7 @@ import (
 )
 
 func TestWeatherPlugin_NameAndScreens(t *testing.T) {
-	p, err := New("Wroclaw", "", "")
+	p, err := New("Kyiv", "", "")
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -24,7 +24,7 @@ func TestWeatherPlugin_NameAndScreens(t *testing.T) {
 }
 
 func TestNew_DefaultsToCelsiusAndMetersPerSecond(t *testing.T) {
-	p, err := New("Wroclaw", "", "")
+	p, err := New("Kyiv", "", "")
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -47,13 +47,13 @@ func TestNew_AcceptsEveryOpenMeteoUnit(t *testing.T) {
 }
 
 func TestNew_RejectsUnknownTemperatureUnit(t *testing.T) {
-	if _, err := New("Wroclaw", "kelvin", ""); err == nil {
+	if _, err := New("Kyiv", "kelvin", ""); err == nil {
 		t.Fatal("expected error for temperature_unit kelvin")
 	}
 }
 
 func TestNew_RejectsUnknownWindSpeedUnit(t *testing.T) {
-	if _, err := New("Wroclaw", "", "knots"); err == nil {
+	if _, err := New("Kyiv", "", "knots"); err == nil {
 		t.Fatal("expected error for wind_speed_unit knots")
 	}
 }
@@ -146,17 +146,17 @@ func TestGetLocation(t *testing.T) {
 			t.Errorf("unexpected path %q", r.URL.Path)
 		}
 		w.Write([]byte(`{
-			"results": [{"name": "Wroclaw", "latitude": 51.1, "longitude": 17.03, "country": "PL"}]
+			"results": [{"name": "Kyiv", "latitude": 50.45, "longitude": 30.52, "country": "UA"}]
 		}`))
 	}))
 	defer srv.Close()
 	withGeocodingURL(t, srv)
 
-	l, err := getLocation("Wroclaw")
+	l, err := getLocation("Kyiv")
 	if err != nil {
 		t.Fatalf("getLocation: %v", err)
 	}
-	if l.Name != "Wroclaw" || l.Latitude != 51.1 || l.Longitude != 17.03 {
+	if l.Name != "Kyiv" || l.Latitude != 50.45 || l.Longitude != 30.52 {
 		t.Errorf("location = %+v", l)
 	}
 }
@@ -192,7 +192,7 @@ func TestGetWeather(t *testing.T) {
 	defer srv.Close()
 	withForecastURL(t, srv)
 
-	weather, err := getWeather(locationResult{Latitude: 51.1, Longitude: 17.03}, "celsius", "ms")
+	weather, err := getWeather(locationResult{Latitude: 50.45, Longitude: 30.52}, "celsius", "ms")
 	if err != nil {
 		t.Fatalf("getWeather: %v", err)
 	}

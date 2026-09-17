@@ -20,7 +20,7 @@ plugins:
     wind_speed_unit: ms         # or kmh, mph, kn
   currency:
     screens:
-      - pairs: ["EUR/PLN", "USD/PLN", "GBP/PLN", "CHF/PLN"]
+      - pairs: ["EUR/UAH", "USD/UAH", "GBP/UAH", "PLN/UAH"]
       - pairs: ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF"]
   # Add "calendar" to enabled_plugins once the feed URLs below are your own.
   calendar:

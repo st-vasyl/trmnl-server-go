@@ -52,10 +52,10 @@ func TestTick_NoDevicesIsNoOp(t *testing.T) {
 
 func TestTick_RendersAllScreensForEachDevice(t *testing.T) {
 	c, store := setupConfig(t)
-	if err := store.RegisterDevice("dev-1", "key-1", "a"); err != nil {
+	if _, err := store.RegisterDevice("dev-1", "key-1", "a"); err != nil {
 		t.Fatalf("RegisterDevice 1: %v", err)
 	}
-	if err := store.RegisterDevice("dev-2", "key-2", "a"); err != nil {
+	if _, err := store.RegisterDevice("dev-2", "key-2", "a"); err != nil {
 		t.Fatalf("RegisterDevice 2: %v", err)
 	}
 

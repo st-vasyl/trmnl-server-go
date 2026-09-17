@@ -70,7 +70,7 @@ type Currency struct {
 	Screens []CurrencyScreen `yaml:"screens"`
 }
 
-// CurrencyScreen holds up to four pairs such as "EUR/PLN".
+// CurrencyScreen holds up to four pairs such as "EUR/UAH".
 type CurrencyScreen struct {
 	Pairs []string `yaml:"pairs"`
 }

@@ -51,19 +51,20 @@ func (s *Store) migrate() error {
 	return nil
 }
 
-// RegisterDevice inserts a new device row. When apiKey is empty a 16-char
-// random key is generated and stored; the caller does not learn the generated
-// value (matching the legacy contract).
-func (s *Store) RegisterDevice(deviceId, apiKey, screen string) error {
+// RegisterDevice inserts a new device row and returns the api key that was
+// stored. When apiKey is empty a 16-char random key is generated; the real
+// firmware sends no Access-Token on /api/setup and adopts whatever api_key the
+// setup response carries, so the caller must pass the returned key back.
+func (s *Store) RegisterDevice(deviceId, apiKey, screen string) (string, error) {
 	if apiKey == "" {
 		apiKey = randstr.String(16)
 	}
 	if _, err := s.db.Exec("INSERT INTO devices(device_id, api_key, screen, voltage) VALUES(?,?,?,0)", deviceId, apiKey, screen); err != nil {
 		log.Error().Str("func", "RegisterDevice").Err(err).Msg("DB: insert failed")
-		return err
+		return "", err
 	}
 	log.Info().Str("func", "RegisterDevice").Str("device", deviceId).Str("api-key", apiKey).Msg("DB: new device registered")
-	return nil
+	return apiKey, nil
 }
 
 func (s *Store) UpdateDevice(deviceId, voltage, screen string) error {

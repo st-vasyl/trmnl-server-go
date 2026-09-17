@@ -2,7 +2,7 @@
 
 A self-hosted backend for [TRMNL](https://usetrmnl.com/) e-ink display devices (800×480).
 It's a single binary self-hosted server without any additional dependencies (except of course fetching data). 
-You can run it either as binary or docker container on your local machine or router. 
+You can run it either as binary or docker container on your local machine, Raspberry Pi or even router if you have ssh access.
 
 ## Features
 
@@ -15,6 +15,14 @@ You can run it either as binary or docker container on your local machine or rou
 - **Self-contained** — SQLite for storage, no external database or message broker
 - **Auto-provisioned assets** — fonts and icons (both from Google Fonts) are downloaded on first run and cached locally
 - **Auto-plugin rotation** — each device cycles through the plugins you enable
+
+## My setup
+
+I have ordered my Speedstudio XIAO TRMNL 7.5' DIY kit from [Aliexpress](https://aliexpress.com/item/1005009532501677.html) with the photoframe from IKEA (probably when I buy a 3d printer I'll update photos with new case instead of this ugly FrankeinFrame). Using [TRMNL Flasher](https://trmnl.com/flash) I have upgraded the device firmware to the 1.8.10 version via browser. 
+
+| Front | Back |
+|:---:|:---:|
+| ![Front](example/front.jpeg) | ![Back](example/back.jpeg) |
 
 ## Example screens
 
@@ -248,10 +256,6 @@ devices fetch are always reasonably fresh.
 
 ## Troubleshooting
 
-- **A newly registered device shows "image download failed"** — the requested screen is rendered on demand
-  during the first `/api/display`, so this should no longer need a restart. If it persists, the plugin for
-  the first screen is failing; check the server log for `On-demand render failed`. A device that was set up
-  against an older server build may have stored an empty api key; factory-reset it so it runs setup again.
 - **Device shows nothing / can't load images** — `external_url` is almost always the cause. Confirm it's the
   host:port the device can actually reach, that `port` matches, and that no firewall blocks it.
 - **Screens render but icons are missing** — icons are rendered from the Material Symbols font, downloaded

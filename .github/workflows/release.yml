@@ -1,0 +1,225 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: stvasyl/trmnl-server-go
+  BINARY: trmnl-server-go
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run tests
+        run: go test ./...
+
+  build:
+    name: Binary ${{ matrix.goos }}/${{ matrix.goarch }}
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          BIN="${BINARY}_${GITHUB_REF_NAME}_${GOOS}_${GOARCH}"
+          go build -trimpath -ldflags="-s -w" -o "dist/${BIN}" .
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.BINARY }}_${{ github.ref_name }}_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+
+  docker:
+    name: Docker image
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tags: ${{ steps.meta.outputs.tags }}
+      digest: ${{ steps.push.outputs.digest }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Derive image tags
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          # The git tag verbatim (v1.2.3); "latest" only for final releases,
+          # so a v1.3.0-rc1 tag never moves it.
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    name: GitHub release
+    needs: [build, docker]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # Full history and all tags so the previous release can be found.
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Download binaries
+        uses: actions/download-artifact@v7
+        with:
+          pattern: ${{ env.BINARY }}_*
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: dist
+        run: |
+          sha256sum "${BINARY}"_* > checksums.txt
+          cat checksums.txt
+
+      - name: Compose release notes
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          IMAGE_TAGS: ${{ needs.docker.outputs.tags }}
+          IMAGE_DIGEST: ${{ needs.docker.outputs.digest }}
+        run: |
+          # Nearest v* tag reachable from the tagged commit's parent.
+          PREV="$(git describe --tags --abbrev=0 --match 'v*' "${TAG}^" 2>/dev/null || true)"
+
+          {
+            echo "## Changes"
+            echo
+            if [ -n "${PREV}" ]; then
+              echo "Since [${PREV}](${REPO_URL}/releases/tag/${PREV}) ([full diff](${REPO_URL}/compare/${PREV}...${TAG})):"
+              echo
+              git log --pretty=format:'- %s (%h)' "${PREV}..${TAG}"
+              echo
+              echo
+              echo "<details><summary>Files changed</summary>"
+              echo
+              echo '```'
+              git diff --stat "${PREV}..${TAG}"
+              echo '```'
+              echo
+              echo "</details>"
+            else
+              echo "First release."
+              echo
+              git log --pretty=format:'- %s (%h)' "${TAG}"
+              echo
+            fi
+            echo
+            echo "## Docker image"
+            echo
+            echo '```'
+            echo "docker pull ${IMAGE}:${TAG}"
+            echo '```'
+            echo
+            echo "- Tags:"
+            while IFS= read -r t; do
+              [ -n "${t}" ] && echo "  - \`${t}\`"
+            done <<< "${IMAGE_TAGS}"
+            echo "- Digest: \`${IMAGE_DIGEST}\`"
+            echo "- Pinned reference: \`${IMAGE}@${IMAGE_DIGEST}\`"
+            echo "- Platforms: linux/amd64, linux/arm64"
+            echo
+            echo "## Binaries"
+            echo
+            echo "| File | SHA256 |"
+            echo "|---|---|"
+            while read -r sum file; do
+              echo "| [${file}](${REPO_URL}/releases/download/${TAG}/${file}) | \`${sum}\` |"
+            done < dist/checksums.txt
+          } > notes.md
+
+          cat notes.md
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          ARGS=(--title "${TAG}" --notes-file notes.md)
+          case "${TAG}" in
+            *-*) ARGS+=(--prerelease) ;;
+          esac
+
+          # Re-running the workflow on the same tag updates the existing release
+          # instead of failing on "already exists".
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release edit "${TAG}" "${ARGS[@]}"
+            gh release upload "${TAG}" --clobber dist/*
+          else
+            gh release create "${TAG}" --verify-tag "${ARGS[@]}" dist/*
+          fi

@@ -193,6 +193,29 @@ func TestGetConfig_ParsesCalendar(t *testing.T) {
 	}
 }
 
+const customYAML = `
+common:
+  enabled_plugins: ["custom"]
+plugins:
+  custom:
+    urls:
+      - "https://integration.local/screens/home.png"
+      - "http://192.168.0.20:9000/status.jpg"
+`
+
+func TestGetConfig_ParsesCustomURLs(t *testing.T) {
+	path := writeTempFile(t, "config.yaml", customYAML)
+
+	c, err := GetConfig(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"https://integration.local/screens/home.png", "http://192.168.0.20:9000/status.jpg"}
+	if got := c.Plugins.Custom.URLs; !equalStrings(got, want) {
+		t.Errorf("Custom.URLs = %v, want %v", got, want)
+	}
+}
+
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

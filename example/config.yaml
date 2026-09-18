@@ -31,3 +31,8 @@ plugins:
         url: "https://calendar.google.com/calendar/ical/<calendar-id>/private-<key>/basic.ics"
       - name: "Family"
         url: "webcal://p44-caldav.icloud.com/published/2/<token>"
+  # Add "custom" to enabled_plugins to show images rendered elsewhere (800×480 PNG or JPEG).
+  custom:
+    urls:
+      - "http://homeassistant.local:8123/local/trmnl/dashboard.png"
+      - "https://grafana.example.com/render/d-solo/abc?width=800&height=480"

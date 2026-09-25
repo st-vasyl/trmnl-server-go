@@ -14,6 +14,7 @@ You can run it either as binary or docker container on your local machine, Raspb
   - `coingecko` — crypto quote with 24h change, market cap and ATH distance, and a 7-day price chart (CoinGecko, no API key)
   - `currency` — exchange rates, 4 pairs per screen with daily change and 30-day trend (Frankfurter, 165 currencies including UAH, no API key)
   - `calendar` — today's agenda merged from any number of iCalendar feeds: Apple/iCloud public calendar links, Google Calendar secret addresses, Outlook, Nextcloud or any `.ics` URL (no API key, no OAuth)
+  - `custom` — images rendered by anything else (Home Assistant, Grafana, a script): each configured PNG or JPEG URL becomes its own screen, downloaded once per update
 - **Self-contained** — SQLite for storage, no external database or message broker
 - **Auto-provisioned assets** — fonts and icons (both from Google Fonts) are downloaded on first run and cached locally
 - **Auto-plugin rotation** — each device cycles through the plugins you enable
@@ -145,6 +146,7 @@ Only the plugins you list in `enabled_plugins` need a config block.
 | `weather`    | `location`, `temperature_unit`, `wind_speed_unit` | City name, e.g. `Kyiv`. Optional `temperature_unit` is `celsius` (default) or `fahrenheit`; optional `wind_speed_unit` is `ms` (default), `kmh`, `mph` or `kn`. An unknown unit stops the server at startup. |
 | `currency`   | `screens`            | List of screens, each with `pairs` of 1–4 currency pairs like `EUR/UAH`. Screens rotate as `currency_1`, `currency_2`, … |
 | `calendar`   | `timezone`, `layout`, `calendars` | IANA zone that defines "today" (e.g. `Europe/Kyiv`; defaults to the server's local zone), the screen `layout` (`timeline`, the default hour grid, or `list`, one row per event) and a list of feeds, each with a `name` (shown as a tag) and an ICS `url` (`https://` or `webcal://`). |
+| `custom`     | `urls`               | List of `http://` or `https://` URLs of ready-made PNG or JPEG images. Each becomes one screen, rotating as `custom_1`, `custom_2`, … in list order. |
 
 Currency pairs read as "1 unit of the first currency in the second", so `EUR/UAH` shows how many UAH one EUR buys.
 Rates come from the Frankfurter v2 API, which blends about a hundred central banks into daily rates for 165
@@ -183,6 +185,23 @@ Set `timezone` to your IANA zone. Without it the plugin uses the server's local 
 unless you pass `-e TZ=Europe/Kyiv` (or similar). A feed that fails to download is named in the screen's footer
 while the other feeds still render; the screen is skipped only when every feed fails.
 
+#### Custom images
+
+The `custom` plugin is the escape hatch for anything this server does not render itself. Let another system
+prepare the screen (Home Assistant, Grafana, a cron job with ImageMagick, a tiny script) and publish it as a
+PNG or JPEG at a URL; list the URLs here and each one becomes a screen in the rotation.
+
+- **Make the image 800×480.** That size is copied pixel for pixel. Anything else is scaled to fit, keeping its
+  aspect ratio, and centered on white, which is fine for a quick test but blurs text.
+- **Keep the top-right 40×40 px clear.** The battery icon is stamped there, as on every other screen.
+- **Use black and white.** The panel is 1-bit, so gray tones and colour are thresholded by the device. Dither
+  photos before publishing them.
+- **Downloads are cached for one minute.** Every device shares one download per update, and the next background
+  update (`update_time`) always fetches a fresh copy. Downloads time out after 30 seconds and are capped at 16 MB.
+- **A failed download keeps the last image.** If the URL is unreachable or does not decode, the previous PNG stays
+  on disk and the error is logged; nothing is rendered blank. A brand-new device with no previous image gets a 404
+  and retries on its next refresh.
+
 Example:
 
 ```yaml
@@ -219,6 +238,11 @@ plugins:
         url: "https://calendar.google.com/calendar/ical/<calendar-id>/private-<key>/basic.ics"
       - name: "Family"
         url: "webcal://p44-caldav.icloud.com/published/2/<token>"
+  # Add "custom" to enabled_plugins to show images rendered elsewhere (800×480 PNG or JPEG).
+  custom:
+    urls:
+      - "http://homeassistant.local:8123/local/trmnl/dashboard.png"
+      - "https://grafana.example.com/render/d-solo/abc?width=800&height=480"
 ```
 
 ## Connecting a TRMNL device

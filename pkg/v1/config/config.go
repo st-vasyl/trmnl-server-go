@@ -44,6 +44,7 @@ type Plugins struct {
 	Weather    Weather    `yaml:"weather"`
 	Currency   Currency   `yaml:"currency"`
 	Calendar   Calendar   `yaml:"calendar"`
+	Custom     Custom     `yaml:"custom"`
 }
 
 type Twelvedata struct {
@@ -88,6 +89,12 @@ type Calendar struct {
 type CalendarSource struct {
 	Name string `yaml:"name"`
 	URL  string `yaml:"url"`
+}
+
+// Custom lists images rendered by other systems. Each URL becomes one screen
+// in the rotation, named custom_1, custom_2, … in list order.
+type Custom struct {
+	URLs []string `yaml:"urls"`
 }
 
 func GetConfig(filename string) (Config, error) {

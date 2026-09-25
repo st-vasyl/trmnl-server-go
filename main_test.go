@@ -100,6 +100,48 @@ func TestBuildPlugins_CalendarEnabledWithoutFeedsIsAnError(t *testing.T) {
 	}
 }
 
+func TestBuildPlugins_EnablesCustomFromConfig(t *testing.T) {
+	c := &config.Config{}
+	c.Common.EnabledPlugins = []string{"custom", "weather"}
+	c.Plugins.Weather.Location = "Kyiv"
+	c.Plugins.Custom.URLs = []string{"https://example.com/a.png", "http://example.com/b.jpg"}
+
+	plugins, err := buildPlugins(c)
+	if err != nil {
+		t.Fatalf("buildPlugins: %v", err)
+	}
+	var names []string
+	for _, p := range plugins {
+		names = append(names, p.Name())
+	}
+	// Rotation order is the fixed order of buildPlugins, not enabled_plugins.
+	if got := strings.Join(names, ","); got != "weather,custom" {
+		t.Errorf("plugins = %v, want [weather custom]", names)
+	}
+	if got := strings.Join(plugins[1].Screens(), ","); got != "custom_1,custom_2" {
+		t.Errorf("custom screens = %v, want [custom_1 custom_2]", plugins[1].Screens())
+	}
+}
+
+func TestBuildPlugins_InvalidCustomURLIsAnError(t *testing.T) {
+	c := &config.Config{}
+	c.Common.EnabledPlugins = []string{"custom"}
+	c.Plugins.Custom.URLs = []string{"ftp://example.com/a.png"}
+
+	if _, err := buildPlugins(c); err == nil {
+		t.Fatal("expected error for a non-http image URL")
+	}
+}
+
+func TestBuildPlugins_CustomEnabledWithoutURLsIsAnError(t *testing.T) {
+	c := &config.Config{}
+	c.Common.EnabledPlugins = []string{"custom"}
+
+	if _, err := buildPlugins(c); err == nil {
+		t.Fatal("expected error when custom is enabled with no urls")
+	}
+}
+
 func TestBuildPlugins_CurrencyEnabledWithoutScreensIsAnError(t *testing.T) {
 	c := &config.Config{}
 	c.Common.EnabledPlugins = []string{"currency"}

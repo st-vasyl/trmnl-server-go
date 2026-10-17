@@ -15,6 +15,7 @@ You can run it either as binary or docker container on your local machine, Raspb
   - `currency` — exchange rates, 4 pairs per screen with daily change and 30-day trend (Frankfurter, 165 currencies including UAH, no API key)
   - `calendar` — today's agenda merged from any number of iCalendar feeds: Apple/iCloud public calendar links, Google Calendar secret addresses, Outlook, Nextcloud or any `.ics` URL (no API key, no OAuth)
   - `custom` — images rendered by anything else (Home Assistant, Grafana, a script): each configured PNG or JPEG URL becomes its own screen, downloaded once per update
+  - `gallery` — a random picture from a local folder of ready-made PNGs, a new one on every update
 - **Self-contained** — SQLite for storage, no external database or message broker
 - **Auto-provisioned assets** — fonts and icons (both from Google Fonts) are downloaded on first run and cached locally
 - **Auto-plugin rotation** — each device cycles through the plugins you enable
@@ -147,6 +148,7 @@ Only the plugins you list in `enabled_plugins` need a config block.
 | `currency`   | `screens`            | List of screens, each with `pairs` of 1–4 currency pairs like `EUR/UAH`. Screens rotate as `currency_1`, `currency_2`, … |
 | `calendar`   | `timezone`, `layout`, `calendars` | IANA zone that defines "today" (e.g. `Europe/Kyiv`; defaults to the server's local zone), the screen `layout` (`timeline`, the default hour grid, or `list`, one row per event) and a list of feeds, each with a `name` (shown as a tag) and an ICS `url` (`https://` or `webcal://`). |
 | `custom`     | `urls`               | List of `http://` or `https://` URLs of ready-made PNG or JPEG images. Each becomes one screen, rotating as `custom_1`, `custom_2`, … in list order. |
+| `gallery`    | `folder`             | Path to a folder of PNG images (relative paths resolve against the working directory). Adds one `gallery` screen showing a random image from it. A missing folder or one with no PNGs stops the server at startup. |
 
 Currency pairs read as "1 unit of the first currency in the second", so `EUR/UAH` shows how many UAH one EUR buys.
 Rates come from the Frankfurter v2 API, which blends about a hundred central banks into daily rates for 165
@@ -202,6 +204,23 @@ PNG or JPEG at a URL; list the URLs here and each one becomes a screen in the ro
   on disk and the error is logged; nothing is rendered blank. A brand-new device with no previous image gets a 404
   and retries on its next refresh.
 
+#### Gallery
+
+The `gallery` plugin shows pictures you keep in a local folder. It adds a single `gallery` screen to the rotation,
+and every time the background worker redraws it (every `update_time`) a random PNG from the folder is picked, so
+the device shows the same picture each time the rotation reaches it until the next update. Each device gets its
+own pick.
+
+- **Prepare the images for the panel.** 800×480, 1-bit black and white PNGs look best; other sizes are scaled to
+  fit and centered on white. Only `.png` files are used (any case); hidden files such as `.DS_Store` or the
+  `._name.png` copies macOS leaves on shares and USB drives are ignored.
+- **Keep the top-right 40×40 px clear** if it matters to you; the battery icon is stamped there.
+- **Add or remove images while the server runs.** The folder is read on every redraw, so no restart is needed.
+- **Under Docker** a relative `folder` resolves against `/data`. Bind-mount your images, e.g.
+  `-v "$(pwd)/images:/data/images:ro"` with `folder: "./images"`.
+- **A broken file keeps the last image.** If the picked file does not decode, the error is logged and the
+  previous PNG stays on disk; the next update picks again.
+
 Example:
 
 ```yaml
@@ -243,6 +262,9 @@ plugins:
     urls:
       - "http://homeassistant.local:8123/local/trmnl/dashboard.png"
       - "https://grafana.example.com/render/d-solo/abc?width=800&height=480"
+  # Add "gallery" to enabled_plugins to show a random picture from a folder of 800×480 PNGs.
+  gallery:
+    folder: "./images"
 ```
 
 ## Connecting a TRMNL device

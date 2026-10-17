@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"trmnl-server-go/pkg/v1/config"
@@ -139,6 +141,40 @@ func TestBuildPlugins_CustomEnabledWithoutURLsIsAnError(t *testing.T) {
 
 	if _, err := buildPlugins(c); err == nil {
 		t.Fatal("expected error when custom is enabled with no urls")
+	}
+}
+
+func TestBuildPlugins_EnablesGalleryFromConfig(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "1.png"), []byte("png"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	c := &config.Config{}
+	c.Common.EnabledPlugins = []string{"gallery", "weather"}
+	c.Plugins.Weather.Location = "Kyiv"
+	c.Plugins.Gallery.Folder = dir
+
+	plugins, err := buildPlugins(c)
+	if err != nil {
+		t.Fatalf("buildPlugins: %v", err)
+	}
+	var names []string
+	for _, p := range plugins {
+		names = append(names, p.Name())
+	}
+	// Rotation order is the fixed order of buildPlugins, not enabled_plugins.
+	if got := strings.Join(names, ","); got != "weather,gallery" {
+		t.Errorf("plugins = %v, want [weather gallery]", names)
+	}
+}
+
+func TestBuildPlugins_GalleryFolderWithoutPNGsIsAnError(t *testing.T) {
+	c := &config.Config{}
+	c.Common.EnabledPlugins = []string{"gallery"}
+	c.Plugins.Gallery.Folder = t.TempDir()
+
+	if _, err := buildPlugins(c); err == nil {
+		t.Fatal("expected error when the gallery folder has no PNGs")
 	}
 }
 

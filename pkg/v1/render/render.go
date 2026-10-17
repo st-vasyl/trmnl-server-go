@@ -14,6 +14,7 @@ import (
 	"trmnl-server-go/pkg/v1/icons"
 
 	"github.com/rs/zerolog/log"
+	xdraw "golang.org/x/image/draw"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
@@ -144,6 +145,23 @@ func AddImageFromBytes(img *image.RGBA, data []byte, point image.Point) error {
 	}
 	draw.Draw(img, img.Bounds(), srcImg, point, draw.Over)
 	return nil
+}
+
+// AddImageFit draws src onto the whole of img. An image that already matches
+// the canvas is copied as is; anything else is scaled to fit, keeping its
+// aspect ratio, and centered on whatever the canvas already holds.
+func AddImageFit(img *image.RGBA, src image.Image) {
+	dst, b := img.Bounds(), src.Bounds()
+	if b.Dx() == dst.Dx() && b.Dy() == dst.Dy() {
+		draw.Draw(img, dst, src, b.Min, draw.Over)
+		return
+	}
+	scale := min(float64(dst.Dx())/float64(b.Dx()), float64(dst.Dy())/float64(b.Dy()))
+	w := int(float64(b.Dx())*scale + 0.5)
+	h := int(float64(b.Dy())*scale + 0.5)
+	x := dst.Min.X + (dst.Dx()-w)/2
+	y := dst.Min.Y + (dst.Dy()-h)/2
+	xdraw.CatmullRom.Scale(img, image.Rect(x, y, x+w, y+h), src, b, draw.Over, nil)
 }
 
 // AddIcon renders an icon by name at the given size and draws it at point. A

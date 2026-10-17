@@ -36,3 +36,6 @@ plugins:
     urls:
       - "http://homeassistant.local:8123/local/trmnl/dashboard.png"
       - "https://grafana.example.com/render/d-solo/abc?width=800&height=480"
+  # Add "gallery" to enabled_plugins to show a random picture from a folder of 800×480 PNGs.
+  gallery:
+    folder: "./images"

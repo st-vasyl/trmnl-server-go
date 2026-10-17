@@ -14,6 +14,7 @@ import (
 	"trmnl-server-go/pkg/v1/plugins/crypto"
 	"trmnl-server-go/pkg/v1/plugins/currency"
 	"trmnl-server-go/pkg/v1/plugins/custom"
+	"trmnl-server-go/pkg/v1/plugins/gallery"
 	"trmnl-server-go/pkg/v1/plugins/stocks"
 	"trmnl-server-go/pkg/v1/plugins/weather"
 	"trmnl-server-go/pkg/v1/render"
@@ -155,6 +156,13 @@ func buildPlugins(c *config.Config) ([]plugin.Plugin, error) {
 	}
 	if enabled["custom"] {
 		p, err := custom.New(c.Plugins.Custom.URLs)
+		if err != nil {
+			return nil, err
+		}
+		plugins = append(plugins, p)
+	}
+	if enabled["gallery"] {
+		p, err := gallery.New(c.Plugins.Gallery.Folder)
 		if err != nil {
 			return nil, err
 		}

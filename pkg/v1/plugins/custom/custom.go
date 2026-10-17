@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"fmt"
 	"image"
-	"image/draw"
 	"io"
 	"net/http"
 	"net/url"
@@ -23,7 +22,6 @@ import (
 	_ "image/png"
 
 	"github.com/rs/zerolog/log"
-	xdraw "golang.org/x/image/draw"
 )
 
 const (
@@ -120,26 +118,10 @@ func (p *Plugin) Render(screen, outputPath string, voltage float32) error {
 		return fmt.Errorf("custom: %s: %w", screen, err)
 	}
 
+	// Anything that is not 800×480 is scaled to fit and centered on white.
 	canvas := render.NewImage(screenWidth, screenHeight)
-	placeOnCanvas(canvas, src)
+	render.AddImageFit(canvas, src)
 	return render.WriteFile(outputPath, canvas, voltage)
-}
-
-// placeOnCanvas draws src onto the canvas. An image that already matches the
-// screen is copied as is; anything else is scaled to fit, keeping its aspect
-// ratio, and centered on the white background.
-func placeOnCanvas(canvas *image.RGBA, src image.Image) {
-	b := src.Bounds()
-	if b.Dx() == screenWidth && b.Dy() == screenHeight {
-		draw.Draw(canvas, canvas.Bounds(), src, b.Min, draw.Over)
-		return
-	}
-	scale := min(float64(screenWidth)/float64(b.Dx()), float64(screenHeight)/float64(b.Dy()))
-	w := int(float64(b.Dx())*scale + 0.5)
-	h := int(float64(b.Dy())*scale + 0.5)
-	x := (screenWidth - w) / 2
-	y := (screenHeight - h) / 2
-	xdraw.CatmullRom.Scale(canvas, image.Rect(x, y, x+w, y+h), src, b, draw.Over, nil)
 }
 
 // image returns the decoded image for u, downloading it unless a copy younger

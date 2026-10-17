@@ -216,6 +216,26 @@ func TestGetConfig_ParsesCustomURLs(t *testing.T) {
 	}
 }
 
+const galleryYAML = `
+common:
+  enabled_plugins: ["gallery"]
+plugins:
+  gallery:
+    folder: "./images"
+`
+
+func TestGetConfig_ParsesGalleryFolder(t *testing.T) {
+	path := writeTempFile(t, "config.yaml", galleryYAML)
+
+	c, err := GetConfig(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := c.Plugins.Gallery.Folder; got != "./images" {
+		t.Errorf("Gallery.Folder = %q, want ./images", got)
+	}
+}
+
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

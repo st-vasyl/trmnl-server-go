@@ -45,6 +45,7 @@ type Plugins struct {
 	Currency   Currency   `yaml:"currency"`
 	Calendar   Calendar   `yaml:"calendar"`
 	Custom     Custom     `yaml:"custom"`
+	Gallery    Gallery    `yaml:"gallery"`
 }
 
 type Twelvedata struct {
@@ -95,6 +96,12 @@ type CalendarSource struct {
 // in the rotation, named custom_1, custom_2, … in list order.
 type Custom struct {
 	URLs []string `yaml:"urls"`
+}
+
+// Gallery points at a local folder of ready-made PNG images. The plugin adds
+// one screen to the rotation that shows a random image from the folder.
+type Gallery struct {
+	Folder string `yaml:"folder"`
 }
 
 func GetConfig(filename string) (Config, error) {
